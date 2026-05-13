@@ -2,6 +2,23 @@ import userModel from '../../../models/adminUser.js';
 import DrDepartmentModel from '../../../models/Department/coreDepartment/doctorManagement.js';
 import generateUniqueId from '../../../utils/generateId.js';
 
+const getDoctorList = async (req, res) => {
+
+    try {
+        const doctorList = await DrDepartmentModel.find();
+        res.status(200).json({
+            code: 0,
+            success: true,
+            doctorList
+        });
+    } catch (error) {
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+}
 
 const coreDepartment = async (req, res) => {
     try {
@@ -82,4 +99,7 @@ const coreDepartment = async (req, res) => {
 
 };
 
-export default coreDepartment;
+export default {
+    coreDepartment,
+    getDoctorList
+};

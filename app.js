@@ -10,6 +10,36 @@ import cors from 'cors';
 const app = express();
 app.use(express.json());
 
+// Disable caching to prevent 304 responses
+app.use((req, res, next) => {
+    // Remove ETag header to prevent conditional requests
+    res.removeHeader('ETag');
+    
+    // Set strong cache control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+    
+    // Add timestamp to prevent caching
+    res.setHeader('Last-Modified', new Date().toUTCString());
+    
+    next();
+});
+
+// Disable ETag generation completely
+app.disable('etag');
+
+// Handle conditional requests to prevent 304 responses
+app.use((req, res, next) => {
+    // If request has conditional headers, ignore them
+    if (req.headers['if-none-match'] || req.headers['if-modified-since']) {
+        delete req.headers['if-none-match'];
+        delete req.headers['if-modified-since'];
+    }
+    next();
+});
+
 app.use(cors({
     origin: 'http://localhost:4200',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -21,7 +51,8 @@ app.use('/api/auth', authRoutes);
 
 app.use('/api/department', departmentRoutes);
 
-app.use('/api/coredepart', coreDepartmentRoutes)
+app.use('/api/coredepart', coreDepartmentRoutes);
+
 
 // Start server AFTER DB connection
 const startServer = async () => {
