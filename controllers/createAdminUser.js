@@ -72,4 +72,22 @@ const createAdminUser = async (req, res) => {
     }
 };
 
-export default createAdminUser;
+const getAdminUser = async (req, res) => {
+    try {
+        const adminUser = await userModel.find();
+        res.status(200).json({
+            code: 0,
+            success: true,
+            data: adminUser
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+}
+export {createAdminUser, getAdminUser};
