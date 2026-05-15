@@ -5,7 +5,7 @@ import departmentModel from '../models/Department/departments.js';
 
 const profile = async (req, res) => {
     try {
-        const userInfo = await userModel.findOne({ id: req.user.user_id }).select('id username email isAdmin isActive department role -_id');
+        const userInfo = await userModel.findOne({ id: req.user.user_id }).select('id username email isAdmin isActive isOnline lastSeen department role -_id');
 
         const departmentInfo = await departmentModel.findOne({ id: userInfo.department }).select('id name description isActive -_id');
 

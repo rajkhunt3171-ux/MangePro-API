@@ -82,7 +82,9 @@ const loginUser = async (req, res) => {
                 email: user.email,
                 username: user.username,
                 isAdmin: user.isAdmin,
-                isActive: user.isActive
+                isActive: user.isActive,
+                isOnline: user.isOnline,
+                lastSeen: user.lastSeen
             },
             token
         });

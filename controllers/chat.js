@@ -16,10 +16,10 @@ const getUserById = async (id) => {
                 { _id: id },
                 { id: id.toString() }
             ]
-        }).select("_id id username email");
+        }).select("_id id username email isOnline lastSeen");
     }
 
-    return userModel.findOne({ id }).select("_id id username email");
+    return userModel.findOne({ id }).select("_id id username email isOnline lastSeen");
 };
 
 // CREATE OR GET CONVERSATION
@@ -78,8 +78,8 @@ const getMessages = async (req, res) => {
         }
 
         const messages = await messageModel.find({ conversationId })
-            .populate("senderId", "id username email")
-            .populate("receiverId", "id username email")
+            .populate("senderId", "id username email isOnline lastSeen")
+            .populate("receiverId", "id username email isOnline lastSeen")
             .sort({ createdAt: 1 });
 
         res.status(200).json({
@@ -113,7 +113,7 @@ const getUserConversations = async (req, res) => {
             });
         }
 
-        const conversations = await conversationModel.find({ participants: user._id }).populate("participants", "id username email")
+        const conversations = await conversationModel.find({ participants: user._id }).populate("participants", "id username email isOnline lastSeen")
             .sort({ updatedAt: -1 });
         res.status(200).json({
             success: true,

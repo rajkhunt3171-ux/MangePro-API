@@ -57,6 +57,8 @@ const createAdminUser = async (req, res) => {
                 email: admin.email,
                 isAdmin: admin.isAdmin,
                 isActive: admin.isActive,
+                isOnline: admin.isOnline,
+                lastSeen: admin.lastSeen,
                 department: admin.department,
                 role: admin.role
             }
@@ -74,7 +76,9 @@ const createAdminUser = async (req, res) => {
 
 const getAdminUser = async (req, res) => {
     try {
-        const adminUser = await userModel.find();
+        const adminUser = await userModel
+            .find()
+            .select("_id id username email isAdmin isActive isOnline lastSeen department role");
         res.status(200).json({
             code: 0,
             success: true,

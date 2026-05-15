@@ -1,0 +1,22 @@
+<section class="users-panel">
+    <header class="users-header">
+        <h2>Users</h2>
+        <button type="button" class="logout-button" (click)="logout()">Logout</button>
+    </header>
+
+    <ul class="users-list">
+        <li class="user-row" *ngFor="let user of users; trackBy: trackByUserId">
+            <span
+                class="status-dot"
+                [class.status-dot-online]="isOnline(user)"
+                [class.status-dot-offline]="!isOnline(user)"
+                aria-hidden="true"
+            ></span>
+
+            <div class="user-meta">
+                <strong>{{ user.username }}</strong>
+                <small>{{ lastSeenText(user) }}</small>
+            </div>
+        </li>
+    </ul>
+</section>
