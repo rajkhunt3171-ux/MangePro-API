@@ -7,17 +7,21 @@ const onlineUsers = new Map();
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-const getUserObjectId = async (id) => {
+const getUserById = async (id) => {
     if (!id) {
         return null;
     }
 
     if (isValidObjectId(id)) {
-        return id;
+        return userModel.findOne({
+            $or: [
+                { _id: id },
+                { id: id.toString() }
+            ]
+        }).select("_id id username email");
     }
 
-    const user = await userModel.findOne({ id }).select("_id");
-    return user?._id;
+    return userModel.findOne({ id }).select("_id id username email");
 };
 
 const setupSocket = (io) => {
@@ -42,10 +46,10 @@ const setupSocket = (io) => {
         socket.on("send_message", async (messageData) => {
             try {
                 const { conversationId, senderId, receiverId, message, messageType } = messageData;
-                const senderObjectId = await getUserObjectId(senderId);
-                const receiverObjectId = await getUserObjectId(receiverId);
+                const senderUser = await getUserById(senderId);
+                const receiverUser = await getUserById(receiverId);
 
-                if (!isValidObjectId(conversationId) || !senderObjectId || !receiverObjectId || !message?.trim()) {
+                if (!isValidObjectId(conversationId) || !senderUser || !receiverUser || !message?.trim()) {
                     return socket.emit("message_error", {
                         success: false,
                         message: "Valid conversationId, senderId, receiverId and message are required"
@@ -54,8 +58,10 @@ const setupSocket = (io) => {
 
                 const newMessage = await messageModel.create({
                     conversationId,
-                    senderId: senderObjectId,
-                    receiverId: receiverObjectId,
+                    senderId: senderUser._id,
+                    receiverId: receiverUser._id,
+                    senderUserId: senderUser.id,
+                    receiverUserId: receiverUser.id,
                     message: message.trim(),
                     messageType: messageType || "text"
                 });
@@ -65,8 +71,8 @@ const setupSocket = (io) => {
                 });
 
                 const savedMessage = await newMessage.populate([
-                    { path: "senderId", select: "username email" },
-                    { path: "receiverId", select: "username email" }
+                    { path: "senderId", select: "id username email" },
+                    { path: "receiverId", select: "id username email" }
                 ]);
 
                 io.to(conversationId).emit("receive_message", {

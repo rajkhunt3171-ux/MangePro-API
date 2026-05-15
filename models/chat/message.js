@@ -16,6 +16,14 @@ const messageSchema = new mongoose.Schema({
         ref: "adminUser"
     },
 
+    senderUserId: {
+        type: String
+    },
+
+    receiverUserId: {
+        type: String
+    },
+
     message: {
         type: String,
         required: true

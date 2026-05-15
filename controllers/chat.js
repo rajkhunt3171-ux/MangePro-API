@@ -5,27 +5,31 @@ import mongoose from "mongoose";
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-const getUserObjectId = async (id) => {
+const getUserById = async (id) => {
     if (!id) {
         return null;
     }
 
     if (isValidObjectId(id)) {
-        return id;
+        return userModel.findOne({
+            $or: [
+                { _id: id },
+                { id: id.toString() }
+            ]
+        }).select("_id id username email");
     }
 
-    const user = await userModel.findOne({ id }).select("_id");
-    return user?._id;
+    return userModel.findOne({ id }).select("_id id username email");
 };
 
 // CREATE OR GET CONVERSATION
 const createConversation = async (req, res) => {
     try {
         const { senderId, receiverId } = req.body;
-        const senderObjectId = await getUserObjectId(senderId);
-        const receiverObjectId = await getUserObjectId(receiverId);
+        const senderUser = await getUserById(senderId);
+        const receiverUser = await getUserById(receiverId);
 
-        if (!senderObjectId || !receiverObjectId) {
+        if (!senderUser || !receiverUser) {
             return res.status(400).json({
                 success: false,
                 message: "Valid senderId and receiverId are required"
@@ -34,13 +38,13 @@ const createConversation = async (req, res) => {
 
         let conversation = await conversationModel.findOne({
             participants: {
-                $all: [senderObjectId, receiverObjectId]
+                $all: [senderUser._id, receiverUser._id]
             }
         });
 
         if (!conversation) {
             conversation = await conversationModel.create({
-                participants: [senderObjectId, receiverObjectId]
+                participants: [senderUser._id, receiverUser._id]
             });
         }
         res.status(200).json({
@@ -74,7 +78,10 @@ const getMessages = async (req, res) => {
             });
         }
 
-        const messages = await messageModel.find({ conversationId }).sort({ createdAt: 1 });
+        const messages = await messageModel.find({ conversationId })
+            .populate("senderId", "id username email")
+            .populate("receiverId", "id username email")
+            .sort({ createdAt: 1 });
 
         res.status(200).json({
             success: true,
@@ -99,16 +106,16 @@ const getMessages = async (req, res) => {
 const getUserConversations = async (req, res) => {
     try {
         const { userId } = req.params;
-        const userObjectId = await getUserObjectId(userId);
+        const user = await getUserById(userId);
 
-        if (!userObjectId) {
+        if (!user) {
             return res.status(400).json({
                 success: false,
                 message: "Valid userId is required"
             });
         }
 
-        const conversations = await conversationModel.find({ participants: userObjectId }).populate("participants", "username email")
+        const conversations = await conversationModel.find({ participants: user._id }).populate("participants", "id username email")
             .sort({ updatedAt: -1 });
         res.status(200).json({
             success: true,
