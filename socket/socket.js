@@ -26,20 +26,16 @@ const getUserById = async (id) => {
 
 const setupSocket = (io) => {
     io.on("connection", (socket) => {
-        console.log("Socket Connected:", socket.id);
-
         // USER SETUP
         socket.on("setup", (userId) => {
             socket.join(userId);
             onlineUsers.set(userId, socket.id);
-            console.log("User Online:", userId);
             io.emit("online_users", Array.from(onlineUsers.keys()));
         });
 
         // JOIN CHAT
         socket.on("join_chat", (conversationId) => {
             socket.join(conversationId);
-            console.log("Joined Chat:", conversationId);
         });
 
         // SEND MESSAGE
@@ -79,8 +75,7 @@ const setupSocket = (io) => {
                     success: true,
                     message: savedMessage
                 });
-            } catch (error) {
-                console.log("Message save error:", error);
+            } catch {
                 socket.emit("message_error", {
                     success: false,
                     message: "Message save error"
@@ -100,8 +95,6 @@ const setupSocket = (io) => {
 
         // DISCONNECT
         socket.on("disconnect", () => {
-            console.log("Disconnected:", socket.id);
-
             for (const [userId, socketId] of onlineUsers.entries()) {
                 if (socketId === socket.id) {
                     onlineUsers.delete(userId);

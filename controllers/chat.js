@@ -52,8 +52,7 @@ const createConversation = async (req, res) => {
             conversation
         });
 
-    } catch (error) {
-        console.log(error);
+    } catch {
         res.status(500).json({
             success: false,
             message: "Conversation error"
@@ -88,8 +87,7 @@ const getMessages = async (req, res) => {
             messages
         });
 
-    } catch (error) {
-        console.log(error);
+    } catch {
         res.status(500).json({
             success: false,
             message: "Messages fetch error"
@@ -122,8 +120,7 @@ const getUserConversations = async (req, res) => {
             conversations
         });
 
-    } catch (error) {
-        console.log(error);
+    } catch {
         res.status(500).json({
             success: false,
             message: "Conversation fetch error"
