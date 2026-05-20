@@ -77,6 +77,9 @@ const drDepartmentSchema = new mongoose.Schema(
             enum: ['Active', 'Inactive'],
             default: 'Active'
         },
+        password: {
+            type: String
+        },
     },
     {
         timestamps: true,
