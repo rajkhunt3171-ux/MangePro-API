@@ -121,12 +121,160 @@ const getPatientList = async (req, res) => {
             return;
         }
 
-        const patientList = await PatientManagementModel.find().sort({ createdAt: -1 });
+        const patientList = await PatientManagementModel.find().sort({ createdAt: -1 }).lean();
+        const patientListWithStatus = patientList.map((patient) => ({
+            ...patient,
+            status: patient.status || "Waiting"
+        }));
 
         res.status(200).json({
             code: 0,
             success: true,
-            patientList
+            patientList: patientListWithStatus
+        });
+    } catch (error) {
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// update patient details
+const updatePatientDetails = async (req, res) => {
+    try {
+        const isAdmin = await checkAdminPermission(req, res);
+        if (!isAdmin) {
+            return;
+        }
+
+        const { patientId } = req.params;
+
+        if (!patientId) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Patient id is required"
+            });
+        }
+
+        const allowedFields = [
+            "name",
+            "number",
+            "age",
+            "gender",
+            "dob",
+            "bloodGroup",
+            "address",
+            "visitDate",
+            "visitTime",
+            "cdId",
+            "department",
+            "priority",
+            "status",
+            "symptoms",
+            "allergies",
+            "currentMedication",
+            "emergencyContactName",
+            "emergencyContactRelation",
+            "emergencyContactNumber"
+        ];
+
+        const updateData = {};
+
+        allowedFields.forEach((field) => {
+            if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+                updateData[field] = req.body[field];
+            }
+        });
+
+        if (Object.prototype.hasOwnProperty.call(updateData, "age")) {
+            const patientAge = Number(updateData.age);
+
+            if (String(updateData.age).trim() === "" || Number.isNaN(patientAge) || patientAge < 0) {
+                return res.status(400).json({
+                    code: 1,
+                    success: false,
+                    message: "Please provide valid age"
+                });
+            }
+
+            updateData.age = patientAge;
+        }
+
+        if (!Object.keys(updateData).length) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Please provide patient details to update"
+            });
+        }
+
+        const updatedPatient = await PatientManagementModel.findOneAndUpdate(
+            { patientId },
+            { $set: updateData },
+            {
+                new: true,
+                runValidators: true
+            }
+        );
+
+        if (!updatedPatient) {
+            return res.status(404).json({
+                code: 1,
+                success: false,
+                message: "Patient not found"
+            });
+        }
+
+        res.status(200).json({
+            code: 0,
+            success: true,
+            message: "Patient updated successfully",
+            data: updatedPatient
+        });
+    } catch (error) {
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// delete patient
+const deletePatient = async (req, res) => {
+    try {
+        const isAdmin = await checkAdminPermission(req, res);
+        if (!isAdmin) {
+            return;
+        }
+
+        const { patientId } = req.params;
+
+        if (!patientId) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Patient id is required"
+            });
+        }
+
+        const deletedPatient = await PatientManagementModel.findOneAndDelete({ patientId });
+
+        if (!deletedPatient) {
+            return res.status(404).json({
+                code: 1,
+                success: false,
+                message: "Patient not found"
+            });
+        }
+
+        res.status(200).json({
+            code: 0,
+            success: true,
+            message: "Patient deleted successfully"
         });
     } catch (error) {
         res.status(500).json({
@@ -139,5 +287,7 @@ const getPatientList = async (req, res) => {
 
 export default {
     createPatient,
-    getPatientList
+    getPatientList,
+    updatePatientDetails,
+    deletePatient
 };

@@ -67,6 +67,11 @@ const patientManagementSchema = new mongoose.Schema(
             required: true,
             trim: true
         },
+        status: {
+            type: String,
+            default: "Waiting",
+            trim: true
+        },
         symptoms: {
             type: String,
             default: "",

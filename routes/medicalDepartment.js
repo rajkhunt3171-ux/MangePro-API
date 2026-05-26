@@ -7,5 +7,7 @@ const router = express.Router();
 // patient management
 router.post('/opd/add-patient', authMiddleware, patientManagementController.createPatient);
 router.get('/opd/get-patient-list', authMiddleware, patientManagementController.getPatientList);
+router.put('/opd/update-patient/:patientId', authMiddleware, patientManagementController.updatePatientDetails);
+router.get('/opd/delete-patient/:patientId', authMiddleware, patientManagementController.deletePatient);
 
 export default router;
