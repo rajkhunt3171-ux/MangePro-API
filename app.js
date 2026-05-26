@@ -13,6 +13,8 @@ import departmentRoutes from "./routes/department.js";
 import coreDepartmentRoutes from "./routes/coreDepartment.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import setupSocket from "./socket/socket.js";
+import mdRoutes from "./routes/medicalDepartment.js";
+
 
 const app = express();
 
@@ -67,6 +69,8 @@ app.use("/api/department", departmentRoutes);
 app.use("/api/coredepart", coreDepartmentRoutes);
 
 app.use("/api/chat", chatRoutes);
+
+app.use("/api/medicaldepartment", mdRoutes);
 
 
 setupSocket(io);
