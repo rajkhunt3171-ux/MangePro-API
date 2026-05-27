@@ -243,6 +243,65 @@ const updatePatientDetails = async (req, res) => {
     }
 };
 
+// change patient status
+const changePatientStatus = async (req, res) => {
+    try {
+        const isAdmin = await checkAdminPermission(req, res);
+        if (!isAdmin) {
+            return;
+        }
+
+        const { patientId } = req.params;
+        const { status } = req.body;
+
+        if (!patientId) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Patient id is required"
+            });
+        }
+
+        if (status === undefined || status === null || String(status).trim() === "") {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Status is required"
+            });
+        }
+
+        const updatedPatient = await PatientManagementModel.findOneAndUpdate(
+            { patientId },
+            { $set: { status: String(status).trim() } },
+            {
+                new: true,
+                runValidators: true
+            }
+        );
+
+        if (!updatedPatient) {
+            return res.status(404).json({
+                code: 1,
+                success: false,
+                message: "Patient not found"
+            });
+        }
+
+        res.status(200).json({
+            code: 0,
+            success: true,
+            message: "Patient status changed successfully",
+            data: updatedPatient
+        });
+    } catch (error) {
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 // delete patient
 const deletePatient = async (req, res) => {
     try {
@@ -285,9 +344,44 @@ const deletePatient = async (req, res) => {
     }
 };
 
+// get patient list for doctor
+const getPatientListForDoctor = async (req, res) => {
+    try {
+        const doctorId = req.user?.user_id;
+
+        if (!doctorId) {
+            return res.status(401).json({
+                code: 1,
+                success: false,
+                message: "Doctor id not found"
+            });
+        }
+
+        const patientList = await PatientManagementModel.find({ cdId: doctorId }).sort({ createdAt: -1 }).lean();
+        const patientListWithStatus = patientList.map((patient) => ({
+            ...patient,
+            status: patient.status || "Waiting"
+        }));
+
+        res.status(200).json({
+            code: 0,
+            success: true,
+            patientList: patientListWithStatus
+        });
+    } catch (error) {
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 export default {
     createPatient,
     getPatientList,
     updatePatientDetails,
-    deletePatient
+    changePatientStatus,
+    deletePatient,
+    getPatientListForDoctor
 };

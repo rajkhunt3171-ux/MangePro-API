@@ -5,6 +5,7 @@ import loginUserReqModel from '../models/login.js';
 import { decrypt } from '../utils/encryptionDecryption.js';
 import userModel from '../models/adminUser.js';
 import loginUserModel from '../models/login.js';
+import DrDepartmentModel from '../models/Department/coreDepartment/doctorManagement.js';
 
 
 const generateToken = (id, username) => {
@@ -61,7 +62,7 @@ const loginUser = async (req, res) => {
             {
                 user_id: user.id
             },
-            { 
+            {
                 $set: {
                     id: user._id,
                     token: token
@@ -99,4 +100,73 @@ const loginUser = async (req, res) => {
     }
 };
 
-export { loginUser };
+const doctorLogin = async (req, res) => {
+    try {
+        const { username, password } = req.body;
+
+        // Validation
+        if (!username || !password) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: 'Username and Password are required'
+            });
+        }
+
+        const user = await DrDepartmentModel.findOne({ id: username });
+        if (!user) {
+            return res.status(401).json({
+                code: 1,
+                success: false,
+                message: 'Invalid username or password'
+            });
+        }
+
+        // AES Decrypt & Compare
+        const decryptedPassword = decrypt(user.password);
+
+        if (decryptedPassword !== password) {
+            return res.status(401).json({
+                code: 1,
+                success: false,
+                message: 'Invalid username or password'
+            });
+        }
+
+        // Generate JWT Token
+        const token = generateToken(user._id, user.id);
+
+        await loginUserModel.updateOne(
+            {
+                user_id: user.id
+            },
+            {
+                $set: {
+                    id: user._id,
+                    token: token
+                }
+            },
+            {
+                upsert: true
+            }
+        );
+
+        res.status(200).json({
+            code: 0,
+            success: true,
+            message: 'Login successful',
+            token
+        });
+
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+};
+
+export { loginUser, doctorLogin };

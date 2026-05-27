@@ -8,6 +8,10 @@ const router = express.Router();
 router.post('/opd/add-patient', authMiddleware, patientManagementController.createPatient);
 router.get('/opd/get-patient-list', authMiddleware, patientManagementController.getPatientList);
 router.put('/opd/update-patient/:patientId', authMiddleware, patientManagementController.updatePatientDetails);
+router.patch('/opd/change-patient-status/:patientId', authMiddleware, patientManagementController.changePatientStatus);
 router.get('/opd/delete-patient/:patientId', authMiddleware, patientManagementController.deletePatient);
+
+//patient management for doctor
+router.get('/opd/get-doctor-patient-list', authMiddleware, patientManagementController.getPatientListForDoctor);
 
 export default router;
