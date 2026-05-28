@@ -246,13 +246,7 @@ const updatePatientDetails = async (req, res) => {
 // change patient status
 const changePatientStatus = async (req, res) => {
     try {
-        const isAdmin = await checkAdminPermission(req, res);
-        if (!isAdmin) {
-            return;
-        }
-
-        const { patientId } = req.params;
-        const { status } = req.body;
+        const { patientId, status } = req.body;
 
         if (!patientId) {
             return res.status(400).json({
