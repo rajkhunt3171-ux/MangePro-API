@@ -35,7 +35,7 @@ const profile = async (req, res) => {
 const doctorProfile = async (req, res) => {
     try {
         const doctorInfo = await DrDepartmentModel.findOne({ id: req.user.user_id })
-            .select('id type name specification qualification experience contactDetails profileImage commission shiftStartTime shiftEndTime weeklyOff status createdAt updatedAt -_id');
+            .select('id type name specification qualification experience contactDetails profileImage commission shiftStartTime shiftEndTime weeklyOff leave status createdAt updatedAt -_id');
 
         if (!doctorInfo) {
             return res.status(404).json({

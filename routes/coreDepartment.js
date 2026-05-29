@@ -7,5 +7,7 @@ const router = express.Router();
 router.post('/dm/reset-pwd', authMiddleware, doctorManagementController.resetDoctorPassword)
 router.get('/dm/get-dm', authMiddleware, doctorManagementController.getDoctorList);
 router.post('/dm/create-dm', authMiddleware, doctorManagementController.coreDepartment);
+router.post('/dm/add-leave', authMiddleware, doctorManagementController.addDoctorLeave);
+router.post('/dm/add-leave/:id', authMiddleware, doctorManagementController.addDoctorLeave);
 
 export default router;

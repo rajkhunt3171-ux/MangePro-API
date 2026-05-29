@@ -1,5 +1,61 @@
 import mongoose from "mongoose";
 
+const leaveSchema = new mongoose.Schema(
+    {
+        leave_id: {
+            type: Number,
+            required: true
+        },
+        leave_type: {
+            type: String,
+            required: true,
+            enum: ["full_day", "half_day", "emergency", "weekly_off"],
+            trim: true
+        },
+        from_date: {
+            type: String,
+            required: true,
+            trim: true
+        },
+        to_date: {
+            type: String,
+            required: true,
+            trim: true
+        },
+        from_time: {
+            type: String,
+            default: null,
+            trim: true
+        },
+        to_time: {
+            type: String,
+            default: null,
+            trim: true
+        },
+        reason: {
+            type: String,
+            default: "",
+            trim: true
+        },
+        note: {
+            type: String,
+            default: "",
+            trim: true
+        },
+        is_available: {
+            type: Boolean,
+            default: false
+        },
+        created_at: {
+            type: String,
+            default: () => new Date().toISOString()
+        }
+    },
+    {
+        _id: false
+    }
+);
+
 const drDepartmentSchema = new mongoose.Schema(
     {
         id: {
@@ -71,6 +127,10 @@ const drDepartmentSchema = new mongoose.Schema(
         weeklyOff: {
             type: [String],
             default: ["Sunday"]
+        },
+        leave: {
+            type: [leaveSchema],
+            default: []
         },
         status: {
             type: String,
