@@ -20,13 +20,63 @@ const checkAdminPermission = async (req, res) => {
 };
 
 const leaveTypes = ["full_day", "half_day", "emergency", "weekly_off"];
+const weekDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const hasValue = (value) => value !== undefined && value !== null && String(value).trim() !== "";
 
+const normalizeDayName = (dayName) => String(dayName).trim().replace(/,+$/, "").toLowerCase();
+
 const createBadRequestError = (message) => {
     const error = new Error(message);
-    error.statusCode = 400;
+    error.statusCode = 200;
     return error;
+};
+
+const getComparableDate = (dateValue) => {
+    const date = String(dateValue).trim();
+    const timestamp = Date.parse(`${date}T00:00:00.000Z`);
+    return Number.isNaN(timestamp) ? null : timestamp;
+};
+
+const getLeaveDayNames = (fromDate, toDate) => {
+    const fromTimestamp = getComparableDate(fromDate);
+    const toTimestamp = getComparableDate(toDate);
+
+    if (fromTimestamp === null || toTimestamp === null) {
+        return [];
+    }
+
+    const dayNames = new Set();
+    const oneDay = 24 * 60 * 60 * 1000;
+
+    for (let timestamp = fromTimestamp; timestamp <= toTimestamp; timestamp += oneDay) {
+        dayNames.add(weekDays[new Date(timestamp).getUTCDay()]);
+    }
+
+    return [...dayNames];
+};
+
+const getComparableTime = (timeValue) => {
+    if (!hasValue(timeValue)) {
+        return null;
+    }
+
+    const timeParts = String(timeValue).trim().split(":").map(Number);
+    const [hours, minutes = 0, seconds = 0] = timeParts;
+
+    if (
+        timeParts.some((timePart) => Number.isNaN(timePart)) ||
+        hours < 0 ||
+        hours > 23 ||
+        minutes < 0 ||
+        minutes > 59 ||
+        seconds < 0 ||
+        seconds > 59
+    ) {
+        return null;
+    }
+
+    return (hours * 60 * 60) + (minutes * 60) + seconds;
 };
 
 const getNextLeaveId = (leave = []) => {
@@ -49,7 +99,9 @@ const normalizeLeave = (leaveItem, fallbackLeaveId) => {
         throw createBadRequestError("Please provide valid leave id");
     }
 
-    if (!hasValue(leaveItem.leave_type) || !leaveTypes.includes(String(leaveItem.leave_type).trim())) {
+    const leaveType = hasValue(leaveItem.leave_type) ? String(leaveItem.leave_type).trim() : "";
+
+    if (!leaveType || !leaveTypes.includes(leaveType)) {
         throw createBadRequestError("Please provide valid leave type");
     }
 
@@ -57,13 +109,44 @@ const normalizeLeave = (leaveItem, fallbackLeaveId) => {
         throw createBadRequestError("Please provide leave from date and to date");
     }
 
+    const fromDate = String(leaveItem.from_date).trim();
+    const toDate = String(leaveItem.to_date).trim();
+    const fromTime = hasValue(leaveItem.from_time) ? String(leaveItem.from_time).trim() : null;
+    const toTime = hasValue(leaveItem.to_time) ? String(leaveItem.to_time).trim() : null;
+    const comparableFromDate = getComparableDate(fromDate);
+    const comparableToDate = getComparableDate(toDate);
+    const comparableFromTime = getComparableTime(fromTime);
+    const comparableToTime = getComparableTime(toTime);
+
+    if (comparableFromDate === null || comparableToDate === null) {
+        throw createBadRequestError("Please provide valid leave date");
+    }
+
+    if (comparableFromDate > comparableToDate) {
+        throw createBadRequestError("Leave from date cannot be after to date");
+    }
+
+    if (["half_day", "emergency", "weekly_off"].includes(leaveType)) {
+        if (!fromTime || !toTime) {
+            throw createBadRequestError("Please provide leave from time and to time");
+        }
+
+        if (comparableFromTime === null || comparableToTime === null) {
+            throw createBadRequestError("Please provide valid leave time");
+        }
+
+        if (comparableFromTime >= comparableToTime) {
+            throw createBadRequestError("Leave from time must be before to time");
+        }
+    }
+
     return {
         leave_id: leaveId,
-        leave_type: String(leaveItem.leave_type).trim(),
-        from_date: String(leaveItem.from_date).trim(),
-        to_date: String(leaveItem.to_date).trim(),
-        from_time: hasValue(leaveItem.from_time) ? String(leaveItem.from_time).trim() : null,
-        to_time: hasValue(leaveItem.to_time) ? String(leaveItem.to_time).trim() : null,
+        leave_type: leaveType,
+        from_date: fromDate,
+        to_date: toDate,
+        from_time: fromTime,
+        to_time: toTime,
         reason: hasValue(leaveItem.reason) ? String(leaveItem.reason).trim() : "",
         note: hasValue(leaveItem.note) ? String(leaveItem.note).trim() : "",
         is_available: typeof leaveItem.is_available === "boolean" ? leaveItem.is_available : false,
@@ -71,23 +154,112 @@ const normalizeLeave = (leaveItem, fallbackLeaveId) => {
     };
 };
 
-const normalizeLeaveList = (leave, startLeaveId = 1, existingLeaveIds = new Set()) => {
+const areLeaveDatesOverlapping = (firstLeave, secondLeave) => {
+    const firstFromDate = getComparableDate(firstLeave.from_date);
+    const firstToDate = getComparableDate(firstLeave.to_date);
+    const secondFromDate = getComparableDate(secondLeave.from_date);
+    const secondToDate = getComparableDate(secondLeave.to_date);
+
+    if (
+        firstFromDate !== null &&
+        firstToDate !== null &&
+        secondFromDate !== null &&
+        secondToDate !== null
+    ) {
+        return firstFromDate <= secondToDate && secondFromDate <= firstToDate;
+    }
+
+    const firstDates = [String(firstLeave.from_date).trim(), String(firstLeave.to_date).trim()];
+    const secondDates = [String(secondLeave.from_date).trim(), String(secondLeave.to_date).trim()];
+
+    return firstDates.some((date) => secondDates.includes(date));
+};
+
+const areLeaveTimesOverlapping = (firstLeave, secondLeave) => {
+    const firstFromTime = getComparableTime(firstLeave.from_time);
+    const firstToTime = getComparableTime(firstLeave.to_time);
+    const secondFromTime = getComparableTime(secondLeave.from_time);
+    const secondToTime = getComparableTime(secondLeave.to_time);
+
+    if (
+        firstFromTime !== null &&
+        firstToTime !== null &&
+        secondFromTime !== null &&
+        secondToTime !== null
+    ) {
+        return firstFromTime < secondToTime && secondFromTime < firstToTime;
+    }
+
+    return true;
+};
+
+const hasDuplicateLeaveDate = (existingLeaves, leaveItem) => existingLeaves.some((existingLeave) => {
+    if (!existingLeave) {
+        return false;
+    }
+
+    const existingLeaveType = String(existingLeave.leave_type || "").trim();
+
+    if (!areLeaveDatesOverlapping(existingLeave, leaveItem)) {
+        return false;
+    }
+
+    if (existingLeaveType === "full_day" || leaveItem.leave_type === "full_day") {
+        return true;
+    }
+
+    if (["half_day", "emergency", "weekly_off"].includes(existingLeaveType) && ["half_day", "emergency", "weekly_off"].includes(leaveItem.leave_type)) {
+        return areLeaveTimesOverlapping(existingLeave, leaveItem);
+    }
+
+    return existingLeaveType === leaveItem.leave_type;
+});
+
+const hasWeeklyOffConflict = (weeklyOff = [], leaveItem) => {
+    const weeklyOffList = Array.isArray(weeklyOff) ? weeklyOff : [weeklyOff];
+    const weeklyOffSet = new Set(
+        weeklyOffList
+            .filter(hasValue)
+            .map((weeklyOffDay) => normalizeDayName(weeklyOffDay))
+    );
+
+    if (!weeklyOffSet.size) {
+        return false;
+    }
+
+    return getLeaveDayNames(leaveItem.from_date, leaveItem.to_date).some((leaveDay) => (
+        weeklyOffSet.has(normalizeDayName(leaveDay))
+    ));
+};
+
+const normalizeLeaveList = (leave, startLeaveId = 1, existingLeaveIds = new Set(), existingLeaves = [], weeklyOff = []) => {
     if (leave === undefined || leave === null) {
         return [];
     }
 
     const leaveList = Array.isArray(leave) ? leave : [leave];
+    const normalizedLeaves = [];
 
-    return leaveList.map((leaveItem, index) => {
+    leaveList.forEach((leaveItem, index) => {
         const normalizedLeave = normalizeLeave(leaveItem, startLeaveId + index);
 
         if (existingLeaveIds.has(normalizedLeave.leave_id)) {
             throw createBadRequestError("Leave id already exists");
         }
 
+        if (hasDuplicateLeaveDate([...existingLeaves, ...normalizedLeaves], normalizedLeave)) {
+            throw createBadRequestError("Leave already exists for selected date and time");
+        }
+
+        if (hasWeeklyOffConflict(weeklyOff, normalizedLeave)) {
+            throw createBadRequestError("Leave cannot be added on weekly off");
+        }
+
         existingLeaveIds.add(normalizedLeave.leave_id);
-        return normalizedLeave;
+        normalizedLeaves.push(normalizedLeave);
     });
+
+    return normalizedLeaves;
 };
 
 //reset password flow
@@ -202,14 +374,16 @@ const coreDepartment = async (req, res) => {
             status: status || "Active"
         }
 
-        const leaveList = normalizeLeaveList(leave);
+        const doctorType = Number(type);
+        const doctorWeeklyOff = doctorType === 1 ? (weeklyOff || ["Sunday"]) : [];
+        const leaveList = normalizeLeaveList(leave, 1, new Set(), [], doctorWeeklyOff);
 
         if (leaveList.length) {
             doctorData.leave = leaveList;
         }
 
-        if (type === 1) {
-            doctorData.weeklyOff = weeklyOff || ["Sunday"];
+        if (doctorType === 1) {
+            doctorData.weeklyOff = doctorWeeklyOff;
         }
 
         const newDoctor = await DrDepartmentModel.create(doctorData);
@@ -232,13 +406,10 @@ const coreDepartment = async (req, res) => {
 
 const addDoctorLeave = async (req, res) => {
     try {
-        const hasAdminPermission = await checkAdminPermission(req, res);
-        if (!hasAdminPermission) return;
-
         const doctorId = req.params.id || req.body.id || req.body.doctorId;
 
         if (!doctorId) {
-            return res.status(400).json({
+            return res.status(200).json({
                 code: 1,
                 success: false,
                 message: "Doctor id is required"
@@ -248,7 +419,7 @@ const addDoctorLeave = async (req, res) => {
         const doctor = await DrDepartmentModel.findOne({ id: doctorId });
 
         if (!doctor) {
-            return res.status(404).json({
+            return res.status(200).json({
                 code: 1,
                 success: false,
                 message: "Doctor not found"
@@ -260,10 +431,16 @@ const addDoctorLeave = async (req, res) => {
             : req.body;
 
         const existingLeaveIds = new Set((doctor.leave || []).map((leaveItem) => Number(leaveItem.leave_id)));
-        const leaveList = normalizeLeaveList(leaveInput, getNextLeaveId(doctor.leave), existingLeaveIds);
+        const leaveList = normalizeLeaveList(
+            leaveInput,
+            getNextLeaveId(doctor.leave),
+            existingLeaveIds,
+            doctor.leave || [],
+            doctor.weeklyOff || []
+        );
 
         if (!leaveList.length) {
-            return res.status(400).json({
+            return res.status(200).json({
                 code: 1,
                 success: false,
                 message: "Please provide leave details"
@@ -288,9 +465,71 @@ const addDoctorLeave = async (req, res) => {
     }
 };
 
+const deleteDoctorLeave = async (req, res) => {
+    try {
+        const { id, doctorId: payloadDoctorId, leave_id, leaveId: payloadLeaveId } = req.body || {};
+        const doctorId = id || payloadDoctorId;
+        const leaveIdInput = leave_id || payloadLeaveId;
+        const leaveId = Number(leaveIdInput);
+
+        if (!doctorId) {
+            return res.status(200).json({
+                code: 1,
+                success: false,
+                message: "Doctor id is required"
+            });
+        }
+
+        if (!Number.isInteger(leaveId) || leaveId <= 0) {
+            return res.status(200).json({
+                code: 1,
+                success: false,
+                message: "Please provide valid leave id"
+            });
+        }
+
+        const doctor = await DrDepartmentModel.findOne({ id: doctorId });
+
+        if (!doctor) {
+            return res.status(200).json({
+                code: 1,
+                success: false,
+                message: "Doctor not found"
+            });
+        }
+
+        const leaveIndex = (doctor.leave || []).findIndex((leaveItem) => Number(leaveItem.leave_id) === leaveId);
+
+        if (leaveIndex === -1) {
+            return res.status(200).json({
+                code: 1,
+                success: false,
+                message: "Leave not found"
+            });
+        }
+
+        doctor.leave.splice(leaveIndex, 1);
+        await doctor.save();
+
+        res.status(200).json({
+            code: 0,
+            success: true,
+            message: "Doctor leave deleted successfully",
+            data: doctor
+        });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 export default {
     coreDepartment,
     getDoctorList,
     resetDoctorPassword,
-    addDoctorLeave
+    addDoctorLeave,
+    deleteDoctorLeave
 };
