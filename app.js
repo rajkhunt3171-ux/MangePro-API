@@ -14,6 +14,9 @@ import coreDepartmentRoutes from "./routes/coreDepartment.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import setupSocket from "./socket/socket.js";
 import mdRoutes from "./routes/medicalDepartment.js";
+import wardsRoutes from "./routes/wardRoutes.js";
+import roomsRoutes from "./routes/roomRoutes.js";
+import bedsRoutes from "./routes/bedRoutes.js";
 
 
 const app = express();
@@ -71,6 +74,12 @@ app.use("/api/coredepart", coreDepartmentRoutes);
 app.use("/api/chat", chatRoutes);
 
 app.use("/api/medicaldepartment", mdRoutes);
+
+app.use("/api/wards", wardsRoutes);
+
+app.use("/api/room", roomsRoutes);
+
+app.use("/api/bed", bedsRoutes);
 
 
 setupSocket(io);
