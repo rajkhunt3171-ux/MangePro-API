@@ -101,6 +101,24 @@ const patientManagementSchema = new mongoose.Schema(
             type: String,
             default: "",
             trim: true
+        },
+        idAdmitted: {
+            type: Boolean,
+            default: false
+        },
+        admissionDate: {
+            type: String,
+            default: "",
+            trim: true
+        },
+        idDischarge: {
+            type: Boolean,
+            default: false
+        },
+        dischargeDate: {
+            type: String,
+            default: "",
+            trim: true
         }
     },
     {

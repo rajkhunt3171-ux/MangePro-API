@@ -296,6 +296,92 @@ const changePatientStatus = async (req, res) => {
     }
 };
 
+// admit patient
+const admitPatient = async (req, res) => {
+    try {
+        const { patientId, idAdmitted, admissionDate } = req.body;
+
+        if (!patientId) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Patient id is required"
+            });
+        }
+
+        if (idAdmitted === undefined || idAdmitted === null) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Admitted status is required"
+            });
+        }
+
+        if (admissionDate === undefined || admissionDate === null || String(admissionDate).trim() === "") {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Admission date is required"
+            });
+        }
+
+        let admittedStatus = idAdmitted;
+
+        if (typeof idAdmitted === "string") {
+            const normalizedStatus = idAdmitted.trim().toLowerCase();
+
+            if (normalizedStatus === "true") {
+                admittedStatus = true;
+            } else if (normalizedStatus === "false") {
+                admittedStatus = false;
+            }
+        }
+
+        if (typeof admittedStatus !== "boolean") {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Please provide valid admitted status"
+            });
+        }
+
+        const updatedPatient = await PatientManagementModel.findOneAndUpdate(
+            { patientId },
+            {
+                $set: {
+                    idAdmitted: admittedStatus,
+                    admissionDate: String(admissionDate).trim()
+                }
+            },
+            {
+                new: true,
+                runValidators: true
+            }
+        );
+
+        if (!updatedPatient) {
+            return res.status(404).json({
+                code: 1,
+                success: false,
+                message: "Patient not found"
+            });
+        }
+
+        res.status(200).json({
+            code: 0,
+            success: true,
+            message: "Patient admitted successfully",
+            data: updatedPatient
+        });
+    } catch (error) {
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 // delete patient
 const deletePatient = async (req, res) => {
     try {
@@ -376,6 +462,7 @@ export default {
     getPatientList,
     updatePatientDetails,
     changePatientStatus,
+    admitPatient,
     deletePatient,
     getPatientListForDoctor
 };

@@ -14,4 +14,6 @@ router.post('/opd/change-patient-status', patientManagementController.changePati
 //patient management for doctor
 router.get('/opd/get-doctor-patient-list', authMiddleware, patientManagementController.getPatientListForDoctor);
 
+
+
 export default router;
