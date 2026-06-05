@@ -1,5 +1,5 @@
 import userModel from "../../../models/adminUser.js";
-import bedManagementModel from "../../../models/Department/bed/bedManagement.js";
+import bedManagementModel, { BED_STATUSES } from "../../../models/Department/bed/bedManagement.js";
 import roomManagementModel from "../../../models/Department/room/roomManagement.js";
 import wardManagementModel from "../../../models/Department/ward/wardManagement.js";
 import generateUniqueId from "../../../utils/generateId.js";
@@ -7,6 +7,8 @@ import generateUniqueId from "../../../utils/generateId.js";
 const hasValue = (value) => value !== undefined && value !== null && String(value).trim() !== "";
 
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const normalizeBedStatus = (status) => String(status).trim().toLowerCase();
 
 // helper function
 const checkAdminPermission = async (req, res) => {
@@ -32,7 +34,7 @@ const createBed = async (req, res) => {
             return;
         }
 
-        const { wardId, roomId, name } = req.body;
+        const { wardId, roomId, name, status } = req.body;
 
         if (!hasValue(wardId)) {
             return res.status(400).json({
@@ -61,6 +63,15 @@ const createBed = async (req, res) => {
         const trimmedWardId = String(wardId).trim();
         const trimmedRoomId = String(roomId).trim();
         const bedName = String(name).trim();
+        const bedStatus = hasValue(status) ? normalizeBedStatus(status) : undefined;
+
+        if (bedStatus && !BED_STATUSES.includes(bedStatus)) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: `Status must be one of: ${BED_STATUSES.join(", ")}`
+            });
+        }
 
         const ward = await wardManagementModel.findOne({ id: trimmedWardId });
         if (!ward) {
@@ -107,7 +118,8 @@ const createBed = async (req, res) => {
             id: bedId,
             wardId: trimmedWardId,
             roomId: trimmedRoomId,
-            name: bedName
+            name: bedName,
+            ...(bedStatus && { status: bedStatus })
         });
 
         res.status(201).json({
@@ -128,7 +140,7 @@ const createBed = async (req, res) => {
 // get bed list
 const getBedList = async (req, res) => {
     try {
-        const { wardId, roomId } = req.query;
+        const { wardId, roomId, status } = req.query;
         const filter = {};
 
         if (hasValue(wardId)) {
@@ -139,12 +151,94 @@ const getBedList = async (req, res) => {
             filter.roomId = String(roomId).trim();
         }
 
+        if (hasValue(status)) {
+            const bedStatus = normalizeBedStatus(status);
+
+            if (!BED_STATUSES.includes(bedStatus)) {
+                return res.status(400).json({
+                    code: 1,
+                    success: false,
+                    message: `Status must be one of: ${BED_STATUSES.join(", ")}`
+                });
+            }
+
+            filter.status = bedStatus;
+        }
+
         const bedList = await bedManagementModel.find(filter).sort({ createdAt: -1 });
 
         res.status(200).json({
             code: 0,
             success: true,
             bedList
+        });
+    } catch (error) {
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// change bed status
+const changeBedStatus = async (req, res) => {
+    try {
+        const hasAdminPermission = await checkAdminPermission(req, res);
+        if (!hasAdminPermission) {
+            return;
+        }
+
+        const { bedId, status } = req.body;
+
+        if (!hasValue(bedId)) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Bed id is required"
+            });
+        }
+
+        if (!hasValue(status)) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Status is required"
+            });
+        }
+
+        const bedStatus = normalizeBedStatus(status);
+
+        if (!BED_STATUSES.includes(bedStatus)) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: `Status must be one of: ${BED_STATUSES.join(", ")}`
+            });
+        }
+
+        const updatedBed = await bedManagementModel.findOneAndUpdate(
+            { id: String(bedId).trim() },
+            { $set: { status: bedStatus } },
+            {
+                new: true,
+                runValidators: true
+            }
+        );
+
+        if (!updatedBed) {
+            return res.status(404).json({
+                code: 1,
+                success: false,
+                message: "Bed not found"
+            });
+        }
+
+        res.status(200).json({
+            code: 0,
+            success: true,
+            message: "Bed status changed successfully",
+            data: updatedBed
         });
     } catch (error) {
         res.status(500).json({
@@ -202,5 +296,6 @@ const deleteBed = async (req, res) => {
 export default {
     createBed,
     getBedList,
+    changeBedStatus,
     deleteBed
 };

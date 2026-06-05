@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+export const BED_STATUSES = ["available", "occupied", "reserved", "cleaning", "maintenance"];
+
 const bedManagementSchema = new mongoose.Schema(
     {
         id: {
@@ -21,6 +23,11 @@ const bedManagementSchema = new mongoose.Schema(
             type: String,
             required: true,
             trim: true
+        },
+        status: {
+            type: String,
+            enum: BED_STATUSES,
+            default: "available"
         }
     },
     {
