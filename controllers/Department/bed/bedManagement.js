@@ -1,5 +1,6 @@
 import userModel from "../../../models/adminUser.js";
 import bedManagementModel, { BED_STATUSES } from "../../../models/Department/bed/bedManagement.js";
+import PatientManagementModel from "../../../models/Department/medicalDepartment/patientManagement.js";
 import roomManagementModel from "../../../models/Department/room/roomManagement.js";
 import wardManagementModel from "../../../models/Department/ward/wardManagement.js";
 import generateUniqueId from "../../../utils/generateId.js";
@@ -293,9 +294,131 @@ const deleteBed = async (req, res) => {
     }
 };
 
+const assignPatientToBed = async (req, res) => {
+    try {
+        const { bedId, patientId, allocationStatus } = req.body;
+        const selectedBedId = hasValue(bedId) ? String(bedId).trim() : "";
+
+        if (!hasValue(selectedBedId)) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Bed id is required"
+            });
+        }
+
+        if (!hasValue(patientId)) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Patient id is required"
+            });
+        }
+
+        const selectedPatientId = String(patientId).trim();
+        const bedStatus = hasValue(allocationStatus) ? normalizeBedStatus(allocationStatus) : "occupied";
+
+        if (!BED_STATUSES.includes(bedStatus)) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: `Allocation status must be one of: ${BED_STATUSES.join(", ")}`
+            });
+        }
+
+        const [bed, patient] = await Promise.all([
+            bedManagementModel.findOne({ id: selectedBedId }),
+            PatientManagementModel.findOne({ patientId: selectedPatientId })
+        ]);
+
+        if (!bed) {
+            return res.status(404).json({
+                code: 1,
+                success: false,
+                message: "Bed not found"
+            });
+        }
+
+        if (!patient) {
+            return res.status(404).json({
+                code: 1,
+                success: false,
+                message: "Patient not found"
+            });
+        }
+
+        if (hasValue(bed.patientId) && bed.patientId !== selectedPatientId) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Bed is already assigned to another patient"
+            });
+        }
+
+        const updates = [];
+
+        if (hasValue(patient.bedId) && patient.bedId !== selectedBedId) {
+            updates.push(
+                bedManagementModel.findOneAndUpdate(
+                    { id: patient.bedId, patientId: selectedPatientId },
+                    {
+                        $set: { status: "available" },
+                        $unset: { patientId: "" }
+                    },
+                    { runValidators: true }
+                )
+            );
+        }
+
+        updates.push(
+            bedManagementModel.findOneAndUpdate(
+                { id: selectedBedId },
+                {
+                    $set: {
+                        patientId: selectedPatientId,
+                        status: bedStatus
+                    }
+                },
+                {
+                    new: true,
+                    runValidators: true
+                }
+            ),
+            PatientManagementModel.findOneAndUpdate(
+                { patientId: selectedPatientId },
+                { $set: { bedId: selectedBedId } },
+                {
+                    new: true,
+                    runValidators: true
+                }
+            )
+        );
+
+        const results = await Promise.all(updates);
+        const [updatedBed, updatedPatient] = results.slice(-2);
+
+        res.status(200).json({
+            code: 0,
+            success: true,
+            message: "Patient assigned to bed successfully",
+            data: {
+                bed: updatedBed,
+                patient: updatedPatient
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 export default {
     createBed,
     getBedList,
     changeBedStatus,
-    deleteBed
+    deleteBed,
+    assignPatientToBed
 };

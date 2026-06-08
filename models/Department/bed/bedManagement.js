@@ -19,6 +19,10 @@ const bedManagementSchema = new mongoose.Schema(
             required: true,
             trim: true
         },
+        patientId: {
+            type: String,
+            trim: true
+        },
         name: {
             type: String,
             required: true,

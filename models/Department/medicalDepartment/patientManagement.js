@@ -119,6 +119,10 @@ const patientManagementSchema = new mongoose.Schema(
             type: String,
             default: "",
             trim: true
+        },
+        bedId: {
+            type: String,
+            trim: true
         }
     },
     {
