@@ -11,6 +11,8 @@ const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$
 
 const normalizeBedStatus = (status) => String(status).trim().toLowerCase();
 
+const normalizeBedCharge = (charge) => Number(charge);
+
 // helper function
 const checkAdminPermission = async (req, res) => {
     const userInfo = await userModel.findOne({ id: req.user?.user_id }).select("id isAdmin -_id");
@@ -35,7 +37,7 @@ const createBed = async (req, res) => {
             return;
         }
 
-        const { wardId, roomId, name, status } = req.body;
+        const { wardId, roomId, name, status, charge } = req.body;
 
         if (!hasValue(wardId)) {
             return res.status(400).json({
@@ -65,12 +67,21 @@ const createBed = async (req, res) => {
         const trimmedRoomId = String(roomId).trim();
         const bedName = String(name).trim();
         const bedStatus = hasValue(status) ? normalizeBedStatus(status) : undefined;
+        const bedCharge = hasValue(charge) ? normalizeBedCharge(charge) : 0;
 
         if (bedStatus && !BED_STATUSES.includes(bedStatus)) {
             return res.status(400).json({
                 code: 1,
                 success: false,
                 message: `Status must be one of: ${BED_STATUSES.join(", ")}`
+            });
+        }
+
+        if (Number.isNaN(bedCharge) || bedCharge < 0) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Please provide valid bed charge"
             });
         }
 
@@ -120,6 +131,7 @@ const createBed = async (req, res) => {
             wardId: trimmedWardId,
             roomId: trimmedRoomId,
             name: bedName,
+            charge: bedCharge,
             ...(bedStatus && { status: bedStatus })
         });
 

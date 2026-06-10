@@ -32,6 +32,11 @@ const bedManagementSchema = new mongoose.Schema(
             type: String,
             enum: BED_STATUSES,
             default: "available"
+        },
+        charge: {
+            type: Number,
+            default: 0,
+            min: 0
         }
     },
     {
