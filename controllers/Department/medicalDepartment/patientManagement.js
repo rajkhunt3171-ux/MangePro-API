@@ -1,6 +1,11 @@
 import userModel from "../../../models/adminUser.js";
 import PatientManagementModel from "../../../models/Department/medicalDepartment/patientManagement.js";
 import generateUniqueId from "../../../utils/generateId.js";
+import {
+    formatPatientWithVisitData,
+    getLatestVisitData,
+    hasValue
+} from "../../../utils/patientVisitData.js";
 
 // helper function 
 const checkAdminPermission = async (req, res) => {
@@ -34,20 +39,11 @@ const createPatient = async (req, res) => {
             dob,
             bloodGroup,
             address,
-            visitDate,
-            visitTime,
-            cdId,
-            department,
-            priority,
-            symptoms,
-            allergies,
-            currentMedication,
             emergencyContactName,
             emergencyContactRelation,
             emergencyContactNumber
         } = req.body;
 
-        const hasValue = (value) => value !== undefined && value !== null && String(value).trim() !== "";
         const patientAge = Number(age);
 
         if (
@@ -56,12 +52,7 @@ const createPatient = async (req, res) => {
             !hasValue(age) ||
             Number.isNaN(patientAge) ||
             patientAge < 0 ||
-            !hasValue(gender) ||
-            !hasValue(visitDate) ||
-            !hasValue(visitTime) ||
-            !hasValue(cdId) ||
-            !hasValue(department) ||
-            !hasValue(priority)
+            !hasValue(gender)
         ) {
             return res.status(400).json({
                 code: 1,
@@ -85,14 +76,7 @@ const createPatient = async (req, res) => {
             dob,
             bloodGroup,
             address,
-            visitDate,
-            visitTime,
-            cdId,
-            department,
-            priority,
-            symptoms,
-            allergies,
-            currentMedication,
+            visitData: [],
             emergencyContactName,
             emergencyContactRelation,
             emergencyContactNumber
@@ -102,7 +86,7 @@ const createPatient = async (req, res) => {
             code: 0,
             success: true,
             message: "Patient created successfully",
-            data: patient
+            data: formatPatientWithVisitData(patient)
         });
     } catch (error) {
         res.status(500).json({
@@ -122,10 +106,7 @@ const getPatientList = async (req, res) => {
         }
 
         const patientList = await PatientManagementModel.find().sort({ createdAt: -1 }).lean();
-        const patientListWithStatus = patientList.map((patient) => ({
-            ...patient,
-            status: patient.status || "Waiting"
-        }));
+        const patientListWithStatus = patientList.map(formatPatientWithVisitData);
 
         res.status(200).json({
             code: 0,
@@ -159,7 +140,7 @@ const updatePatientDetails = async (req, res) => {
             });
         }
 
-        const allowedFields = [
+        const patientFields = [
             "name",
             "number",
             "age",
@@ -167,6 +148,12 @@ const updatePatientDetails = async (req, res) => {
             "dob",
             "bloodGroup",
             "address",
+            "emergencyContactName",
+            "emergencyContactRelation",
+            "emergencyContactNumber"
+        ];
+
+        const visitFields = [
             "visitDate",
             "visitTime",
             "cdId",
@@ -175,17 +162,25 @@ const updatePatientDetails = async (req, res) => {
             "status",
             "symptoms",
             "allergies",
-            "currentMedication",
-            "emergencyContactName",
-            "emergencyContactRelation",
-            "emergencyContactNumber"
+            "idAdmitted",
+            "admissionDate",
+            "idDischarge",
+            "dischargeDate",
+            "bedId"
         ];
 
         const updateData = {};
+        const visitUpdateData = {};
 
-        allowedFields.forEach((field) => {
+        patientFields.forEach((field) => {
             if (Object.prototype.hasOwnProperty.call(req.body, field)) {
                 updateData[field] = req.body[field];
+            }
+        });
+
+        visitFields.forEach((field) => {
+            if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+                visitUpdateData[field] = req.body[field];
             }
         });
 
@@ -203,7 +198,7 @@ const updatePatientDetails = async (req, res) => {
             updateData.age = patientAge;
         }
 
-        if (!Object.keys(updateData).length) {
+        if (!Object.keys(updateData).length && !Object.keys(visitUpdateData).length) {
             return res.status(400).json({
                 code: 1,
                 success: false,
@@ -211,16 +206,9 @@ const updatePatientDetails = async (req, res) => {
             });
         }
 
-        const updatedPatient = await PatientManagementModel.findOneAndUpdate(
-            { patientId },
-            { $set: updateData },
-            {
-                new: true,
-                runValidators: true
-            }
-        );
+        const patient = await PatientManagementModel.findOne({ patientId });
 
-        if (!updatedPatient) {
+        if (!patient) {
             return res.status(404).json({
                 code: 1,
                 success: false,
@@ -228,11 +216,25 @@ const updatePatientDetails = async (req, res) => {
             });
         }
 
+        Object.entries(updateData).forEach(([field, value]) => {
+            patient[field] = value;
+        });
+
+        if (Object.keys(visitUpdateData).length) {
+            const latestVisit = getLatestVisitData(patient);
+
+            Object.entries(visitUpdateData).forEach(([field, value]) => {
+                latestVisit[field] = value;
+            });
+        }
+
+        const updatedPatient = await patient.save();
+
         res.status(200).json({
             code: 0,
             success: true,
             message: "Patient updated successfully",
-            data: updatedPatient
+            data: formatPatientWithVisitData(updatedPatient)
         });
     } catch (error) {
         res.status(500).json({
@@ -264,16 +266,9 @@ const changePatientStatus = async (req, res) => {
             });
         }
 
-        const updatedPatient = await PatientManagementModel.findOneAndUpdate(
-            { patientId },
-            { $set: { status: String(status).trim() } },
-            {
-                new: true,
-                runValidators: true
-            }
-        );
+        const patient = await PatientManagementModel.findOne({ patientId });
 
-        if (!updatedPatient) {
+        if (!patient) {
             return res.status(404).json({
                 code: 1,
                 success: false,
@@ -281,11 +276,16 @@ const changePatientStatus = async (req, res) => {
             });
         }
 
+        const latestVisit = getLatestVisitData(patient);
+        latestVisit.status = String(status).trim();
+
+        const updatedPatient = await patient.save();
+
         res.status(200).json({
             code: 0,
             success: true,
             message: "Patient status changed successfully",
-            data: updatedPatient
+            data: formatPatientWithVisitData(updatedPatient)
         });
     } catch (error) {
         res.status(500).json({
@@ -345,21 +345,9 @@ const admitPatient = async (req, res) => {
             });
         }
 
-        const updatedPatient = await PatientManagementModel.findOneAndUpdate(
-            { patientId },
-            {
-                $set: {
-                    idAdmitted: admittedStatus,
-                    admissionDate: String(admissionDate).trim()
-                }
-            },
-            {
-                new: true,
-                runValidators: true
-            }
-        );
+        const patient = await PatientManagementModel.findOne({ patientId });
 
-        if (!updatedPatient) {
+        if (!patient) {
             return res.status(404).json({
                 code: 1,
                 success: false,
@@ -367,11 +355,17 @@ const admitPatient = async (req, res) => {
             });
         }
 
+        const latestVisit = getLatestVisitData(patient);
+        latestVisit.idAdmitted = admittedStatus;
+        latestVisit.admissionDate = String(admissionDate).trim();
+
+        const updatedPatient = await patient.save();
+
         res.status(200).json({
             code: 0,
             success: true,
             message: "Patient admitted successfully",
-            data: updatedPatient
+            data: formatPatientWithVisitData(updatedPatient)
         });
     } catch (error) {
         res.status(500).json({
@@ -437,11 +431,13 @@ const getPatientListForDoctor = async (req, res) => {
             });
         }
 
-        const patientList = await PatientManagementModel.find({ cdId: doctorId }).sort({ createdAt: -1 }).lean();
-        const patientListWithStatus = patientList.map((patient) => ({
-            ...patient,
-            status: patient.status || "Waiting"
-        }));
+        const patientList = await PatientManagementModel.find({
+            $or: [
+                { "visitData.cdId": doctorId },
+                { cdId: doctorId }
+            ]
+        }).sort({ createdAt: -1 }).lean();
+        const patientListWithStatus = patientList.map(formatPatientWithVisitData);
 
         res.status(200).json({
             code: 0,

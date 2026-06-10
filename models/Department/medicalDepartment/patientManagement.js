@@ -1,5 +1,75 @@
 import mongoose from "mongoose";
 
+const visitDataSchema = new mongoose.Schema(
+    {
+        patientId: {
+            type: String,
+            trim: true
+        },
+        visitDate: {
+            type: String,
+            trim: true
+        },
+        visitTime: {
+            type: String,
+            trim: true
+        },
+        cdId: {
+            type: String,
+            trim: true
+        },
+        department: {
+            type: String,
+            trim: true
+        },
+        priority: {
+            type: String,
+            trim: true
+        },
+        status: {
+            type: String,
+            default: "Waiting",
+            trim: true
+        },
+        symptoms: {
+            type: String,
+            default: "",
+            trim: true
+        },
+        allergies: {
+            type: String,
+            default: "",
+            trim: true
+        },
+        idAdmitted: {
+            type: Boolean,
+            default: false
+        },
+        admissionDate: {
+            type: String,
+            default: "",
+            trim: true
+        },
+        idDischarge: {
+            type: Boolean,
+            default: false
+        },
+        dischargeDate: {
+            type: String,
+            default: "",
+            trim: true
+        },
+        bedId: {
+            type: String,
+            default: "",
+            trim: true
+        }
+    },
+    {
+        _id: false
+    }
+);
+
 const patientManagementSchema = new mongoose.Schema(
     {
         patientId: {
@@ -42,50 +112,9 @@ const patientManagementSchema = new mongoose.Schema(
             default: "",
             trim: true
         },
-        visitDate: {
-            type: String,
-            required: true,
-            trim: true
-        },
-        visitTime: {
-            type: String,
-            required: true,
-            trim: true
-        },
-        cdId: {
-            type: String,
-            required: true,
-            trim: true
-        },
-        department: {
-            type: String,
-            required: true,
-            trim: true
-        },
-        priority: {
-            type: String,
-            required: true,
-            trim: true
-        },
-        status: {
-            type: String,
-            default: "Waiting",
-            trim: true
-        },
-        symptoms: {
-            type: String,
-            default: "",
-            trim: true
-        },
-        allergies: {
-            type: String,
-            default: "",
-            trim: true
-        },
-        currentMedication: {
-            type: String,
-            default: "",
-            trim: true
+        visitData: {
+            type: [visitDataSchema],
+            default: []
         },
         emergencyContactName: {
             type: String,
@@ -102,28 +131,6 @@ const patientManagementSchema = new mongoose.Schema(
             default: "",
             trim: true
         },
-        idAdmitted: {
-            type: Boolean,
-            default: false
-        },
-        admissionDate: {
-            type: String,
-            default: "",
-            trim: true
-        },
-        idDischarge: {
-            type: Boolean,
-            default: false
-        },
-        dischargeDate: {
-            type: String,
-            default: "",
-            trim: true
-        },
-        bedId: {
-            type: String,
-            trim: true
-        }
     },
     {
         timestamps: true

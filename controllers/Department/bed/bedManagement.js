@@ -4,6 +4,10 @@ import PatientManagementModel from "../../../models/Department/medicalDepartment
 import roomManagementModel from "../../../models/Department/room/roomManagement.js";
 import wardManagementModel from "../../../models/Department/ward/wardManagement.js";
 import generateUniqueId from "../../../utils/generateId.js";
+import {
+    formatPatientWithVisitData,
+    getLatestVisitData
+} from "../../../utils/patientVisitData.js";
 
 const hasValue = (value) => value !== undefined && value !== null && String(value).trim() !== "";
 
@@ -367,12 +371,14 @@ const assignPatientToBed = async (req, res) => {
             });
         }
 
+        const latestVisit = getLatestVisitData(patient);
+        const currentBedId = latestVisit.bedId;
         const updates = [];
 
-        if (hasValue(patient.bedId) && patient.bedId !== selectedBedId) {
+        if (hasValue(currentBedId) && currentBedId !== selectedBedId) {
             updates.push(
                 bedManagementModel.findOneAndUpdate(
-                    { id: patient.bedId, patientId: selectedPatientId },
+                    { id: currentBedId, patientId: selectedPatientId },
                     {
                         $set: { status: "available" },
                         $unset: { patientId: "" }
@@ -395,16 +401,11 @@ const assignPatientToBed = async (req, res) => {
                     new: true,
                     runValidators: true
                 }
-            ),
-            PatientManagementModel.findOneAndUpdate(
-                { patientId: selectedPatientId },
-                { $set: { bedId: selectedBedId } },
-                {
-                    new: true,
-                    runValidators: true
-                }
             )
         );
+
+        latestVisit.bedId = selectedBedId;
+        updates.push(patient.save());
 
         const results = await Promise.all(updates);
         const [updatedBed, updatedPatient] = results.slice(-2);
@@ -415,7 +416,7 @@ const assignPatientToBed = async (req, res) => {
             message: "Patient assigned to bed successfully",
             data: {
                 bed: updatedBed,
-                patient: updatedPatient
+                patient: formatPatientWithVisitData(updatedPatient)
             }
         });
     } catch (error) {
