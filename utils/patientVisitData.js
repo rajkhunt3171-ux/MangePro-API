@@ -1,4 +1,5 @@
 export const VISIT_DATA_FIELDS = [
+    "visitId",
     "patientId",
     "visitDate",
     "visitTime",
@@ -20,6 +21,7 @@ export const LEGACY_VISIT_DATA_FIELDS = VISIT_DATA_FIELDS.filter((field) => fiel
 export const hasValue = (value) => value !== undefined && value !== null && String(value).trim() !== "";
 
 const DEFAULT_VISIT_DATA = {
+    visitId: "",
     patientId: "",
     visitDate: "",
     visitTime: "",
@@ -78,6 +80,7 @@ export const buildVisitDataObject = (source = {}, fallbackSource = {}) => {
     const status = fieldValue(source, fallbackSource, "status");
 
     return {
+        visitId: fieldValue(source, fallbackSource, "visitId"),
         patientId: fieldValue(source, fallbackSource, "patientId"),
         visitDate: fieldValue(source, fallbackSource, "visitDate"),
         visitTime: fieldValue(source, fallbackSource, "visitTime"),
@@ -142,10 +145,10 @@ export const getLatestVisitData = (patient) => {
     }
 
     if (!patient.visitData.length) {
-        patient.visitData.push(buildVisitDataObject(patient));
+        patient.visitData.unshift(buildVisitDataObject(patient));
     }
 
-    const latestVisit = patient.visitData[patient.visitData.length - 1];
+    const latestVisit = patient.visitData[0];
 
     if (!hasValue(latestVisit.patientId) && hasValue(patient.patientId)) {
         latestVisit.patientId = patient.patientId;

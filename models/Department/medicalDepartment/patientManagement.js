@@ -2,6 +2,10 @@ import mongoose from "mongoose";
 
 const visitDataSchema = new mongoose.Schema(
     {
+        visitId: {
+            type: String,
+            trim: true
+        },
         patientId: {
             type: String,
             trim: true

@@ -1,8 +1,9 @@
 import userModel from "../../../models/adminUser.js";
+import Appointment from "../../../models/Department/medicalDepartment/appointment.js";
 import PatientManagementModel from "../../../models/Department/medicalDepartment/patientManagement.js";
 import generateUniqueId from "../../../utils/generateId.js";
+import mongoose from "mongoose";
 import {
-    formatPatientWithVisitData,
     getLatestVisitData,
     hasValue
 } from "../../../utils/patientVisitData.js";
@@ -86,7 +87,7 @@ const createPatient = async (req, res) => {
             code: 0,
             success: true,
             message: "Patient created successfully",
-            data: formatPatientWithVisitData(patient)
+            data: patient
         });
     } catch (error) {
         res.status(500).json({
@@ -106,12 +107,10 @@ const getPatientList = async (req, res) => {
         }
 
         const patientList = await PatientManagementModel.find().sort({ createdAt: -1 }).lean();
-        const patientListWithStatus = patientList.map(formatPatientWithVisitData);
-
         res.status(200).json({
             code: 0,
             success: true,
-            patientList: patientListWithStatus
+            patientList
         });
     } catch (error) {
         res.status(500).json({
@@ -234,7 +233,7 @@ const updatePatientDetails = async (req, res) => {
             code: 0,
             success: true,
             message: "Patient updated successfully",
-            data: formatPatientWithVisitData(updatedPatient)
+            data: updatedPatient
         });
     } catch (error) {
         res.status(500).json({
@@ -285,7 +284,7 @@ const changePatientStatus = async (req, res) => {
             code: 0,
             success: true,
             message: "Patient status changed successfully",
-            data: formatPatientWithVisitData(updatedPatient)
+            data: updatedPatient
         });
     } catch (error) {
         res.status(500).json({
@@ -365,7 +364,7 @@ const admitPatient = async (req, res) => {
             code: 0,
             success: true,
             message: "Patient admitted successfully",
-            data: formatPatientWithVisitData(updatedPatient)
+            data: updatedPatient
         });
     } catch (error) {
         res.status(500).json({
@@ -437,12 +436,252 @@ const getPatientListForDoctor = async (req, res) => {
                 { cdId: doctorId }
             ]
         }).sort({ createdAt: -1 }).lean();
-        const patientListWithStatus = patientList.map(formatPatientWithVisitData);
+        res.status(200).json({
+            code: 0,
+            success: true,
+            patientList
+        });
+    } catch (error) {
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// request to appointment
+const requestToAppointment = async (req, res) => {
+    try {
+        const { patientId } = req.body;
+
+        if (!hasValue(patientId)) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Patient id is required"
+            });
+        }
+
+        const selectedPatientId = String(patientId).trim();
+        const patient = await PatientManagementModel.findOne({ patientId: selectedPatientId }).select("patientId -_id");
+
+        if (!patient) {
+            return res.status(404).json({
+                code: 1,
+                success: false,
+                message: "Patient not found"
+            });
+        }
+
+        const existingAppointment = await Appointment.findOne({ patientId: selectedPatientId });
+
+        if (existingAppointment) {
+            const updatedAppointment = await Appointment.findOneAndUpdate(
+                { patientId: selectedPatientId },
+                {
+                    $set: {
+                        status: "Requested",
+                        updatedAt: new Date()
+                    }
+                },
+                {
+                    new: true,
+                    runValidators: true
+                }
+            );
+            const appointmentData = updatedAppointment.toObject();
+
+            return res.status(200).json({
+                code: 0,
+                success: true,
+                message: "Appointment updated successfully",
+                data: appointmentData
+            });
+        }
+
+        const appointmentId = await generateUniqueId(
+            Appointment,
+            "appointmentId",
+            "APT"
+        );
+
+        const appointment = await Appointment.create({
+            appointmentId,
+            patientId: selectedPatientId
+        });
+        const appointmentData = appointment.toObject();
+
+        res.status(201).json({
+            code: 0,
+            success: true,
+            message: "Appointment requested successfully",
+            data: appointmentData
+        });
+    } catch (error) {
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// get request to appointment list
+const getRequestToAppointmentList = async (_req, res) => {
+    try {
+        const appointments = await Appointment.find().sort({ createdAt: -1 }).lean();
+        res.status(200).json({
+            code: 0,
+            success: true,
+            data: appointments
+        });
+    } catch (error) {
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+//appointment request patient details
+const getPatientDetailsForAppointment = async (req, res) => {
+    try {
+        const patientId = req.params.patientId;
+        const patient = await PatientManagementModel.findOne({ patientId }).lean();
+        res.status(200).json({
+            code: 0,
+            success: true,
+            data: patient
+        });
+    } catch (error) {
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+//add patient visit details
+const addPatientVisitDetails = async (req, res) => {
+    try {
+        const {
+            patientId,
+            visitDate,
+            visitTime,
+            cdId,
+            department,
+            priority,
+            status,
+            symptoms,
+            allergies,
+            idAdmitted,
+            admissionDate,
+            idDischarge,
+            dischargeDate,
+            bedId
+        } = req.body;
+
+        if (!hasValue(patientId)) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Patient id is required"
+            });
+        }
+
+        const selectedPatientId = String(patientId).trim();
+        const patient = await PatientManagementModel.findOne({ patientId: selectedPatientId });
+
+        if (!patient) {
+            return res.status(404).json({
+                code: 1,
+                success: false,
+                message: "Patient not found"
+            });
+        }
+
+        const visitId = await generateUniqueId(
+            PatientManagementModel,
+            "visitData.visitId",
+            "VIS"
+        );
+
+        const visitDetails = {
+            visitId,
+            patientId: selectedPatientId,
+            visitDate,
+            visitTime,
+            cdId,
+            department,
+            priority,
+            status: hasValue(status) ? status : "Waiting",
+            symptoms,
+            allergies,
+            idAdmitted,
+            admissionDate,
+            idDischarge,
+            dischargeDate,
+            bedId
+        };
+
+        patient.visitData.unshift(visitDetails);
+        const updatedPatient = await patient.save();
 
         res.status(200).json({
             code: 0,
             success: true,
-            patientList: patientListWithStatus
+            message: "Patient visit added successfully",
+            data: updatedPatient
+        });
+    } catch (error) {
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+//approve and reject appointment request
+const approveAppointmentRequest = async (req, res) => {
+    try {
+        const appointmentId = req.params.appointmentId;
+
+        if (!hasValue(appointmentId)) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Appointment id is required"
+            });
+        }
+
+        const selectedAppointmentId = String(appointmentId).trim();
+        const appointmentFilter = mongoose.Types.ObjectId.isValid(selectedAppointmentId)
+            ? {
+                $or: [
+                    { _id: selectedAppointmentId },
+                    { appointmentId: selectedAppointmentId }
+                ]
+            }
+            : { appointmentId: selectedAppointmentId };
+
+        const appointment = await Appointment.findOneAndDelete(appointmentFilter);
+
+        if (!appointment) {
+            return res.status(404).json({
+                code: 1,
+                success: false,
+                message: "Appointment not found"
+            });
+        }
+
+        res.status(200).json({
+            code: 0,
+            success: true,
+            message: "Appointment request approve successfully"
         });
     } catch (error) {
         res.status(500).json({
@@ -456,9 +695,14 @@ const getPatientListForDoctor = async (req, res) => {
 export default {
     createPatient,
     getPatientList,
+    requestToAppointment,
+    getRequestToAppointmentList,
     updatePatientDetails,
     changePatientStatus,
     admitPatient,
     deletePatient,
-    getPatientListForDoctor
+    getPatientListForDoctor,
+    getPatientDetailsForAppointment,
+    addPatientVisitDetails,
+    approveAppointmentRequest
 };
