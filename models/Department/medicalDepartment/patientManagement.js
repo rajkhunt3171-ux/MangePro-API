@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-
 const visitDataSchema = new mongoose.Schema(
     {
         visitId: {
