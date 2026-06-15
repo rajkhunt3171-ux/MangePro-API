@@ -134,6 +134,10 @@ const patientManagementSchema = new mongoose.Schema(
             default: "",
             trim: true
         },
+        isNewPatient: {
+            type: Boolean,
+            default: true
+        }
     },
     {
         timestamps: true

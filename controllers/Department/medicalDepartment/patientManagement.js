@@ -42,7 +42,8 @@ const createPatient = async (req, res) => {
             address,
             emergencyContactName,
             emergencyContactRelation,
-            emergencyContactNumber
+            emergencyContactNumber,
+            isNewPatient
         } = req.body;
 
         const patientAge = Number(age);
@@ -602,6 +603,8 @@ const addPatientVisitDetails = async (req, res) => {
                 message: "Patient not found"
             });
         }
+
+        patient.isNewPatient = !(Array.isArray(patient.visitData) && patient.visitData.length >= 1);
 
         const visitId = await generateUniqueId(
             PatientManagementModel,
