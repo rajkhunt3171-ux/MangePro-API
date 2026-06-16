@@ -66,6 +66,24 @@ const visitDataSchema = new mongoose.Schema(
             type: String,
             default: "",
             trim: true
+        },
+        charge: {
+            fileCharge: {
+                type: Number,
+                default: 0
+            },
+            medicalCharge: {
+                type: Number,
+                default: 0
+            },
+            WardCharge: {
+                type: Number,
+                default: 0
+            },
+            otherCharge: {
+                type: Number,
+                default: 0
+            }
         }
     },
     {

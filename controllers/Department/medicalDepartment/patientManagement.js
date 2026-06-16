@@ -166,7 +166,8 @@ const updatePatientDetails = async (req, res) => {
             "admissionDate",
             "idDischarge",
             "dischargeDate",
-            "bedId"
+            "bedId",
+            "charge"
         ];
 
         const updateData = {};
@@ -582,7 +583,8 @@ const addPatientVisitDetails = async (req, res) => {
             admissionDate,
             idDischarge,
             dischargeDate,
-            bedId
+            bedId,
+            charge
         } = req.body;
 
         if (!hasValue(patientId)) {
@@ -627,7 +629,8 @@ const addPatientVisitDetails = async (req, res) => {
             admissionDate,
             idDischarge,
             dischargeDate,
-            bedId
+            bedId,
+            charge
         };
 
         patient.visitData.unshift(visitDetails);

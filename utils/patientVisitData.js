@@ -13,7 +13,8 @@ export const VISIT_DATA_FIELDS = [
     "admissionDate",
     "idDischarge",
     "dischargeDate",
-    "bedId"
+    "bedId",
+    "charge"
 ];
 
 export const LEGACY_VISIT_DATA_FIELDS = VISIT_DATA_FIELDS.filter((field) => field !== "patientId");
@@ -35,7 +36,13 @@ const DEFAULT_VISIT_DATA = {
     admissionDate: "",
     idDischarge: false,
     dischargeDate: "",
-    bedId: ""
+    bedId: "",
+    charge: {
+        fileCharge: 0,
+        medicalCharge: 0,
+        WardCharge: 0,
+        otherCharge: 0
+    }
 };
 
 const toPlainObject = (value) => {
@@ -76,8 +83,20 @@ const fieldValue = (source, fallbackSource, field) => {
     return DEFAULT_VISIT_DATA[field];
 };
 
+const normalizeCharge = (charge = {}) => {
+    const chargeObject = toPlainObject(charge);
+
+    return {
+        fileCharge: chargeObject.fileCharge ?? DEFAULT_VISIT_DATA.charge.fileCharge,
+        medicalCharge: chargeObject.medicalCharge ?? DEFAULT_VISIT_DATA.charge.medicalCharge,
+        WardCharge: chargeObject.WardCharge ?? DEFAULT_VISIT_DATA.charge.WardCharge,
+        otherCharge: chargeObject.otherCharge ?? DEFAULT_VISIT_DATA.charge.otherCharge
+    };
+};
+
 export const buildVisitDataObject = (source = {}, fallbackSource = {}) => {
     const status = fieldValue(source, fallbackSource, "status");
+    const charge = fieldValue(source, fallbackSource, "charge");
 
     return {
         visitId: fieldValue(source, fallbackSource, "visitId"),
@@ -94,7 +113,8 @@ export const buildVisitDataObject = (source = {}, fallbackSource = {}) => {
         admissionDate: fieldValue(source, fallbackSource, "admissionDate"),
         idDischarge: fieldValue(source, fallbackSource, "idDischarge"),
         dischargeDate: fieldValue(source, fallbackSource, "dischargeDate"),
-        bedId: fieldValue(source, fallbackSource, "bedId")
+        bedId: fieldValue(source, fallbackSource, "bedId"),
+        charge: normalizeCharge(charge)
     };
 };
 
@@ -108,7 +128,8 @@ const hasLegacyVisitData = (patientObject) => [
     "allergies",
     "admissionDate",
     "dischargeDate",
-    "bedId"
+    "bedId",
+    "charge"
 ].some((field) => hasValue(patientObject[field]));
 
 export const normalizeVisitDataArray = (patient) => {
