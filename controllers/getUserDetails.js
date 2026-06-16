@@ -5,7 +5,7 @@ import DrDepartmentModel from '../models/Department/coreDepartment/doctorManagem
 
 const profile = async (req, res) => {
     try {
-        const userInfo = await userModel.findOne({ id: req.user.user_id }).select('id username email isAdmin isActive isOnline lastSeen department role -_id');
+        const userInfo = await userModel.findOne({ id: req.user.user_id }).select('id username email isAdmin isActive isOnline lastSeen department role walletList -_id');
 
         if (!userInfo) {
             return res.status(404).json({
@@ -35,7 +35,7 @@ const profile = async (req, res) => {
 const doctorProfile = async (req, res) => {
     try {
         const doctorInfo = await DrDepartmentModel.findOne({ id: req.user.user_id })
-            .select('id type name specification qualification experience contactDetails profileImage commission shiftStartTime shiftEndTime weeklyOff leave status createdAt updatedAt -_id');
+            .select('id type name specification qualification experience contactDetails profileImage commission shiftStartTime shiftEndTime weeklyOff leave walletList status createdAt updatedAt -_id');
 
         if (!doctorInfo) {
             return res.status(404).json({

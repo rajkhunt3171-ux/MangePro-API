@@ -1,5 +1,30 @@
 import mongoose from 'mongoose';
 
+const walletSchema = new mongoose.Schema({
+    patientId: {
+        type: String,
+        trim: true
+    },
+    drId: {
+        type: String,
+        trim: true
+    },
+    charge: {
+        type: Number,
+        default: 0
+    },
+    balance: {
+        type: Number,
+        default: 0
+    },
+    time: {
+        type: Date,
+        default: Date.now
+    }
+}, {
+    _id: false
+});
+
 const userSchema = new mongoose.Schema({
     id: {
         type: String,
@@ -47,6 +72,10 @@ const userSchema = new mongoose.Schema({
     lastSeen: {
         type: Date,
         default: null
+    },
+    walletList: {
+        type: [walletSchema],
+        default: []
     }
 }, {
     timestamps: true

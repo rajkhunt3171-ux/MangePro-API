@@ -1,5 +1,6 @@
 import userModel from "../../../models/adminUser.js";
 import Appointment from "../../../models/Department/medicalDepartment/appointment.js";
+import DrDepartmentModel from "../../../models/Department/coreDepartment/doctorManagement.js";
 import PatientManagementModel from "../../../models/Department/medicalDepartment/patientManagement.js";
 import generateUniqueId from "../../../utils/generateId.js";
 import mongoose from "mongoose";
@@ -16,6 +17,18 @@ const normalizePatientVisitData = (patient) => patient
         visitData: normalizeVisitDataArray(patient)
     }
     : patient;
+
+const toPlainObject = (value) => {
+    if (!value) {
+        return {};
+    }
+
+    if (typeof value.toObject === "function") {
+        return value.toObject();
+    }
+
+    return value;
+};
 
 // helper function 
 const checkAdminPermission = async (req, res) => {
@@ -708,6 +721,167 @@ const approveAppointmentRequest = async (req, res) => {
     }
 };
 
+//set payment status
+const setPaymentStatus = async (req, res) => {
+    try {
+        const {
+            patientId,
+            cdId,
+            visitId,
+            charge
+        } = req.body;
+
+        if (!hasValue(patientId)) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Patient id is required"
+            });
+        }
+
+        const fileCharge = toPlainObject(charge?.fileCharge);
+        const paymentCharge = Number(fileCharge.charge);
+
+        if (!hasValue(fileCharge.charge) || Number.isNaN(paymentCharge) || paymentCharge < 0) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Please provide valid file charge"
+            });
+        }
+
+        if (!hasValue(fileCharge.type)) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Payment type is required"
+            });
+        }
+
+        if (!hasValue(fileCharge.status)) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Payment status is required"
+            });
+        }
+
+        const selectedPatientId = String(patientId).trim();
+        const patient = await PatientManagementModel.findOne({ patientId: selectedPatientId });
+
+        if (!patient) {
+            return res.status(404).json({
+                code: 1,
+                success: false,
+                message: "Patient not found"
+            });
+        }
+
+        const latestVisit = getLatestVisitData(patient);
+        const latestVisitCdId = hasValue(latestVisit.cdId) ? String(latestVisit.cdId).trim() : "";
+        const selectedCdId = hasValue(cdId) ? String(cdId).trim() : latestVisitCdId;
+
+        if (!hasValue(selectedCdId)) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Doctor id is required"
+            });
+        }
+
+        if (hasValue(latestVisitCdId) && latestVisitCdId !== selectedCdId) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Doctor id does not match latest visit"
+            });
+        }
+
+        const doctor = await DrDepartmentModel.findOne({ id: selectedCdId })
+            .select("id name commission -_id")
+            .lean();
+
+        if (!doctor) {
+            return res.status(404).json({
+                code: 1,
+                success: false,
+                message: "Doctor not found"
+            });
+        }
+
+        const adminUser = await userModel.findOne({ id: "USR533808" })
+            .select("id -_id")
+            .lean();
+
+        if (!adminUser) {
+            return res.status(404).json({
+                code: 1,
+                success: false,
+                message: "Admin user not found"
+            });
+        }
+
+        const currentCharge = toPlainObject(latestVisit.charge);
+        const currentFileCharge = toPlainObject(currentCharge.fileCharge);
+
+        const doctorCommission = Number(doctor.commission || 0);
+        const commissionAmount = (paymentCharge * doctorCommission) / 100;
+        const remainingAmount = paymentCharge - commissionAmount;
+        const walletTime = new Date();
+
+        const adminWalletEntry = {
+            patientId: selectedPatientId,
+            drId: selectedCdId,
+            charge: paymentCharge,
+            balance: remainingAmount,
+            time: walletTime
+        };
+        const doctorWalletEntry = {
+            patientId: selectedPatientId,
+            drId: selectedCdId,
+            charge: paymentCharge,
+            balance: commissionAmount,
+            time: walletTime
+        };
+
+        latestVisit.charge = normalizeCharge({
+            ...currentCharge,
+            fileCharge: {
+                ...currentFileCharge,
+                charge: paymentCharge,
+                type: String(fileCharge.type).trim(),
+                status: String(fileCharge.status).trim()
+            }
+        });
+
+        await Promise.all([
+            patient.save(),
+            userModel.findOneAndUpdate(
+                { id: "USR533808" },
+                { $push: { walletList: adminWalletEntry } },
+                { new: true, runValidators: true }
+            ),
+            DrDepartmentModel.findOneAndUpdate(
+                { id: selectedCdId },
+                { $push: { walletList: doctorWalletEntry } },
+                { new: true, runValidators: true }
+            )
+        ]);
+
+        res.status(200).json({
+            code: 0,
+            success: true,
+            message: "Payment status updated successfully",
+        });
+    } catch (error) {
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 export default {
     createPatient,
     getPatientList,
@@ -720,5 +894,6 @@ export default {
     getPatientListForDoctor,
     getPatientDetailsForAppointment,
     addPatientVisitDetails,
-    approveAppointmentRequest
+    approveAppointmentRequest,
+    setPaymentStatus
 };

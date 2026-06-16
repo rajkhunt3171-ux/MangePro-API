@@ -1,11 +1,5 @@
 import mongoose from "mongoose";
 
-const DEFAULT_FILE_CHARGE = {
-    charge: 0,
-    type: "cash",
-    status: "paid"
-};
-
 const normalizeFileChargeValue = (fileCharge) => {
     if (fileCharge === undefined || fileCharge === null) {
         return fileCharge;
@@ -13,7 +7,6 @@ const normalizeFileChargeValue = (fileCharge) => {
 
     if (typeof fileCharge === "number" || typeof fileCharge === "string") {
         return {
-            ...DEFAULT_FILE_CHARGE,
             charge: fileCharge
         };
     }
@@ -33,17 +26,14 @@ const fileChargeSchema = new mongoose.Schema(
     {
         charge: {
             type: Number,
-            default: DEFAULT_FILE_CHARGE.charge,
             min: 0
         },
         type: {
             type: String,
-            default: DEFAULT_FILE_CHARGE.type,
             trim: true
         },
         status: {
             type: String,
-            default: DEFAULT_FILE_CHARGE.status,
             trim: true
         }
     },
@@ -56,20 +46,16 @@ const chargeSchema = new mongoose.Schema(
     {
         fileCharge: {
             type: fileChargeSchema,
-            default: () => ({}),
             set: normalizeFileChargeValue
         },
         medicalCharge: {
-            type: Number,
-            default: 0
+            type: Number
         },
         WardCharge: {
-            type: Number,
-            default: 0
+            type: Number
         },
         otherCharge: {
-            type: Number,
-            default: 0
+            type: Number
         }
     },
     {
@@ -146,8 +132,7 @@ const visitDataSchema = new mongoose.Schema(
             trim: true
         },
         charge: {
-            type: chargeSchema,
-            default: () => ({})
+            type: chargeSchema
         }
     },
     {

@@ -1,5 +1,30 @@
 import mongoose from "mongoose";
 
+const walletSchema = new mongoose.Schema({
+    patientId: {
+        type: String,
+        trim: true
+    },
+    drId: {
+        type: String,
+        trim: true
+    },
+    charge: {
+        type: Number,
+        default: 0
+    },
+    balance: {
+        type: Number,
+        default: 0
+    },
+    time: {
+        type: Date,
+        default: Date.now
+    }
+}, {
+    _id: false
+});
+
 const leaveSchema = new mongoose.Schema(
     {
         leave_id: {
@@ -64,30 +89,25 @@ const drDepartmentSchema = new mongoose.Schema(
         },
         type: {
             type: Number,
-            required: true,
             enum: [1, 2],           // 1 = Regular, 2 = Visiting, 3 = OnCall etc.
             default: 1
         },
         name: {
             type: String,
-            required: true,
             trim: true,
         },
         specification: {
             type: String,
-            required: true,
             trim: true,
         },
 
         qualification: {
             type: String,
-            required: true,
             trim: true,
         },
 
         experience: {
             type: Number,
-            required: true,
         },
 
         contactDetails: {
@@ -140,6 +160,10 @@ const drDepartmentSchema = new mongoose.Schema(
         password: {
             type: String
         },
+        walletList: {
+            type: [walletSchema],
+            default: []
+        }
     },
     {
         timestamps: true,

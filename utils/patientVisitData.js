@@ -37,16 +37,7 @@ const DEFAULT_VISIT_DATA = {
     idDischarge: false,
     dischargeDate: "",
     bedId: "",
-    charge: {
-        fileCharge: {
-            charge: 0,
-            type: "cash",
-            status: "paid"
-        },
-        medicalCharge: 0,
-        WardCharge: 0,
-        otherCharge: 0
-    }
+    charge: undefined
 };
 
 const toPlainObject = (value) => {
@@ -61,10 +52,12 @@ const toPlainObject = (value) => {
     return value;
 };
 
+const hasOwnField = (source, field) => Object.prototype.hasOwnProperty.call(source, field);
+
 const readField = (source, field) => {
     const sourceObject = toPlainObject(source);
 
-    if (Object.prototype.hasOwnProperty.call(sourceObject, field)) {
+    if (hasOwnField(sourceObject, field)) {
         return sourceObject[field];
     }
 
@@ -87,39 +80,89 @@ const fieldValue = (source, fallbackSource, field) => {
     return DEFAULT_VISIT_DATA[field];
 };
 
-const normalizeFileCharge = (fileCharge = {}) => {
+const isDefaultFileCharge = (fileCharge) => {
+    const chargeValue = Number(fileCharge.charge);
+    const typeValue = hasValue(fileCharge.type) ? String(fileCharge.type).trim().toLowerCase() : "";
+    const statusValue = hasValue(fileCharge.status) ? String(fileCharge.status).trim().toLowerCase() : "";
+
+    return (
+        Object.keys(fileCharge).length === 0 ||
+        (
+            !Number.isNaN(chargeValue) &&
+            chargeValue === 0 &&
+            (
+                (!typeValue && !statusValue) ||
+                (typeValue === "cash" && statusValue === "paid")
+            )
+        )
+    );
+};
+
+const normalizeFileCharge = (fileCharge) => {
+    if (fileCharge === undefined || fileCharge === null) {
+        return undefined;
+    }
+
     if (typeof fileCharge === "number" || typeof fileCharge === "string") {
-        return {
-            ...DEFAULT_VISIT_DATA.charge.fileCharge,
-            charge: fileCharge
-        };
+        return Number(fileCharge) === 0 ? undefined : { charge: fileCharge };
     }
 
     const fileChargeObject = toPlainObject(fileCharge);
+    const normalizedFileCharge = {};
 
-    return {
-        charge: fileChargeObject.charge ?? DEFAULT_VISIT_DATA.charge.fileCharge.charge,
-        type: fileChargeObject.type ?? DEFAULT_VISIT_DATA.charge.fileCharge.type,
-        status: fileChargeObject.status ?? DEFAULT_VISIT_DATA.charge.fileCharge.status
-    };
+    ["charge", "type", "status"].forEach((field) => {
+        if (hasOwnField(fileChargeObject, field) && fileChargeObject[field] !== undefined && fileChargeObject[field] !== null) {
+            normalizedFileCharge[field] = fileChargeObject[field];
+        }
+    });
+
+    return isDefaultFileCharge(normalizedFileCharge) ? undefined : normalizedFileCharge;
 };
 
-export const normalizeCharge = (charge = {}) => {
-    const chargeObject = toPlainObject(charge);
+const addChargeAmount = (normalizedCharge, chargeObject, field) => {
+    if (!hasOwnField(chargeObject, field) || chargeObject[field] === undefined || chargeObject[field] === null) {
+        return;
+    }
 
-    return {
-        fileCharge: normalizeFileCharge(chargeObject.fileCharge ?? DEFAULT_VISIT_DATA.charge.fileCharge),
-        medicalCharge: chargeObject.medicalCharge ?? DEFAULT_VISIT_DATA.charge.medicalCharge,
-        WardCharge: chargeObject.WardCharge ?? DEFAULT_VISIT_DATA.charge.WardCharge,
-        otherCharge: chargeObject.otherCharge ?? DEFAULT_VISIT_DATA.charge.otherCharge
-    };
+    const chargeAmount = Number(chargeObject[field]);
+
+    if (!Number.isNaN(chargeAmount) && chargeAmount === 0) {
+        return;
+    }
+
+    normalizedCharge[field] = chargeObject[field];
+};
+
+export const normalizeCharge = (charge) => {
+    if (charge === undefined || charge === null) {
+        return undefined;
+    }
+
+    if (typeof charge === "number" || typeof charge === "string") {
+        const fileCharge = normalizeFileCharge(charge);
+        return fileCharge ? { fileCharge } : undefined;
+    }
+
+    const chargeObject = toPlainObject(charge);
+    const normalizedCharge = {};
+    const fileCharge = normalizeFileCharge(chargeObject.fileCharge);
+
+    if (fileCharge) {
+        normalizedCharge.fileCharge = fileCharge;
+    }
+
+    addChargeAmount(normalizedCharge, chargeObject, "medicalCharge");
+    addChargeAmount(normalizedCharge, chargeObject, "WardCharge");
+    addChargeAmount(normalizedCharge, chargeObject, "otherCharge");
+
+    return Object.keys(normalizedCharge).length ? normalizedCharge : undefined;
 };
 
 export const buildVisitDataObject = (source = {}, fallbackSource = {}) => {
     const status = fieldValue(source, fallbackSource, "status");
     const charge = fieldValue(source, fallbackSource, "charge");
 
-    return {
+    const visitData = {
         visitId: fieldValue(source, fallbackSource, "visitId"),
         patientId: fieldValue(source, fallbackSource, "patientId"),
         visitDate: fieldValue(source, fallbackSource, "visitDate"),
@@ -134,9 +177,15 @@ export const buildVisitDataObject = (source = {}, fallbackSource = {}) => {
         admissionDate: fieldValue(source, fallbackSource, "admissionDate"),
         idDischarge: fieldValue(source, fallbackSource, "idDischarge"),
         dischargeDate: fieldValue(source, fallbackSource, "dischargeDate"),
-        bedId: fieldValue(source, fallbackSource, "bedId"),
-        charge: normalizeCharge(charge)
+        bedId: fieldValue(source, fallbackSource, "bedId")
     };
+    const normalizedCharge = normalizeCharge(charge);
+
+    if (normalizedCharge) {
+        visitData.charge = normalizedCharge;
+    }
+
+    return visitData;
 };
 
 const hasLegacyVisitData = (patientObject) => [

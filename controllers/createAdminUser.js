@@ -78,7 +78,7 @@ const getAdminUser = async (req, res) => {
     try {
         const adminUser = await userModel
             .find()
-            .select("_id id username email isAdmin isActive isOnline lastSeen department role");
+            .select("_id id username email isAdmin isActive isOnline lastSeen department role walletList");
         res.status(200).json({
             code: 0,
             success: true,
