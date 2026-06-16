@@ -1,4 +1,82 @@
 import mongoose from "mongoose";
+
+const DEFAULT_FILE_CHARGE = {
+    charge: 0,
+    type: "cash",
+    status: "paid"
+};
+
+const normalizeFileChargeValue = (fileCharge) => {
+    if (fileCharge === undefined || fileCharge === null) {
+        return fileCharge;
+    }
+
+    if (typeof fileCharge === "number" || typeof fileCharge === "string") {
+        return {
+            ...DEFAULT_FILE_CHARGE,
+            charge: fileCharge
+        };
+    }
+
+    return fileCharge;
+};
+
+const normalizeVisitChargeValue = (visit) => {
+    if (!visit?.charge || !Object.prototype.hasOwnProperty.call(visit.charge, "fileCharge")) {
+        return;
+    }
+
+    visit.charge.fileCharge = normalizeFileChargeValue(visit.charge.fileCharge);
+};
+
+const fileChargeSchema = new mongoose.Schema(
+    {
+        charge: {
+            type: Number,
+            default: DEFAULT_FILE_CHARGE.charge,
+            min: 0
+        },
+        type: {
+            type: String,
+            default: DEFAULT_FILE_CHARGE.type,
+            trim: true
+        },
+        status: {
+            type: String,
+            default: DEFAULT_FILE_CHARGE.status,
+            trim: true
+        }
+    },
+    {
+        _id: false
+    }
+);
+
+const chargeSchema = new mongoose.Schema(
+    {
+        fileCharge: {
+            type: fileChargeSchema,
+            default: () => ({}),
+            set: normalizeFileChargeValue
+        },
+        medicalCharge: {
+            type: Number,
+            default: 0
+        },
+        WardCharge: {
+            type: Number,
+            default: 0
+        },
+        otherCharge: {
+            type: Number,
+            default: 0
+        }
+    },
+    {
+        _id: false
+    }
+);
+
 const visitDataSchema = new mongoose.Schema(
     {
         visitId: {
@@ -68,22 +146,8 @@ const visitDataSchema = new mongoose.Schema(
             trim: true
         },
         charge: {
-            fileCharge: {
-                type: Number,
-                default: 0
-            },
-            medicalCharge: {
-                type: Number,
-                default: 0
-            },
-            WardCharge: {
-                type: Number,
-                default: 0
-            },
-            otherCharge: {
-                type: Number,
-                default: 0
-            }
+            type: chargeSchema,
+            default: () => ({})
         }
     },
     {
@@ -161,6 +225,14 @@ const patientManagementSchema = new mongoose.Schema(
         timestamps: true
     }
 );
+
+patientManagementSchema.pre("init", (patient) => {
+    if (!Array.isArray(patient.visitData)) {
+        return;
+    }
+
+    patient.visitData.forEach(normalizeVisitChargeValue);
+});
 
 const PatientManagementModel = mongoose.model("patient", patientManagementSchema);
 

@@ -5,8 +5,17 @@ import generateUniqueId from "../../../utils/generateId.js";
 import mongoose from "mongoose";
 import {
     getLatestVisitData,
-    hasValue
+    hasValue,
+    normalizeCharge,
+    normalizeVisitDataArray
 } from "../../../utils/patientVisitData.js";
+
+const normalizePatientVisitData = (patient) => patient
+    ? {
+        ...patient,
+        visitData: normalizeVisitDataArray(patient)
+    }
+    : patient;
 
 // helper function 
 const checkAdminPermission = async (req, res) => {
@@ -107,7 +116,8 @@ const getPatientList = async (req, res) => {
             return;
         }
 
-        const patientList = await PatientManagementModel.find().sort({ createdAt: -1 }).lean();
+        const patientList = (await PatientManagementModel.find().sort({ createdAt: -1 }).lean())
+            .map(normalizePatientVisitData);
         res.status(200).json({
             code: 0,
             success: true,
@@ -225,7 +235,7 @@ const updatePatientDetails = async (req, res) => {
             const latestVisit = getLatestVisitData(patient);
 
             Object.entries(visitUpdateData).forEach(([field, value]) => {
-                latestVisit[field] = value;
+                latestVisit[field] = field === "charge" ? normalizeCharge(value) : value;
             });
         }
 
@@ -432,12 +442,12 @@ const getPatientListForDoctor = async (req, res) => {
             });
         }
 
-        const patientList = await PatientManagementModel.find({
+        const patientList = (await PatientManagementModel.find({
             $or: [
                 { "visitData.cdId": doctorId },
                 { cdId: doctorId }
             ]
-        }).sort({ createdAt: -1 }).lean();
+        }).sort({ createdAt: -1 }).lean()).map(normalizePatientVisitData);
         res.status(200).json({
             code: 0,
             success: true,
@@ -555,7 +565,7 @@ const getPatientDetailsForAppointment = async (req, res) => {
         res.status(200).json({
             code: 0,
             success: true,
-            data: patient
+            data: normalizePatientVisitData(patient)
         });
     } catch (error) {
         res.status(500).json({
@@ -630,7 +640,7 @@ const addPatientVisitDetails = async (req, res) => {
             idDischarge,
             dischargeDate,
             bedId,
-            charge
+            charge: normalizeCharge(charge)
         };
 
         patient.visitData.unshift(visitDetails);

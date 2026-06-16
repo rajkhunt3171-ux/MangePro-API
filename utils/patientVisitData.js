@@ -38,7 +38,11 @@ const DEFAULT_VISIT_DATA = {
     dischargeDate: "",
     bedId: "",
     charge: {
-        fileCharge: 0,
+        fileCharge: {
+            charge: 0,
+            type: "cash",
+            status: "paid"
+        },
         medicalCharge: 0,
         WardCharge: 0,
         otherCharge: 0
@@ -83,11 +87,28 @@ const fieldValue = (source, fallbackSource, field) => {
     return DEFAULT_VISIT_DATA[field];
 };
 
-const normalizeCharge = (charge = {}) => {
+const normalizeFileCharge = (fileCharge = {}) => {
+    if (typeof fileCharge === "number" || typeof fileCharge === "string") {
+        return {
+            ...DEFAULT_VISIT_DATA.charge.fileCharge,
+            charge: fileCharge
+        };
+    }
+
+    const fileChargeObject = toPlainObject(fileCharge);
+
+    return {
+        charge: fileChargeObject.charge ?? DEFAULT_VISIT_DATA.charge.fileCharge.charge,
+        type: fileChargeObject.type ?? DEFAULT_VISIT_DATA.charge.fileCharge.type,
+        status: fileChargeObject.status ?? DEFAULT_VISIT_DATA.charge.fileCharge.status
+    };
+};
+
+export const normalizeCharge = (charge = {}) => {
     const chargeObject = toPlainObject(charge);
 
     return {
-        fileCharge: chargeObject.fileCharge ?? DEFAULT_VISIT_DATA.charge.fileCharge,
+        fileCharge: normalizeFileCharge(chargeObject.fileCharge ?? DEFAULT_VISIT_DATA.charge.fileCharge),
         medicalCharge: chargeObject.medicalCharge ?? DEFAULT_VISIT_DATA.charge.medicalCharge,
         WardCharge: chargeObject.WardCharge ?? DEFAULT_VISIT_DATA.charge.WardCharge,
         otherCharge: chargeObject.otherCharge ?? DEFAULT_VISIT_DATA.charge.otherCharge
