@@ -24,6 +24,10 @@ const normalizeVisitChargeValue = (visit) => {
 
 const fileChargeSchema = new mongoose.Schema(
     {
+        transactionId: {
+            type: String,
+            trim: true
+        },
         charge: {
             type: Number,
             min: 0

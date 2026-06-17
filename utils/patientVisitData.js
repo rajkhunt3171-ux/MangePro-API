@@ -110,7 +110,7 @@ const normalizeFileCharge = (fileCharge) => {
     const fileChargeObject = toPlainObject(fileCharge);
     const normalizedFileCharge = {};
 
-    ["charge", "type", "status"].forEach((field) => {
+    ["transactionId", "charge", "type", "status"].forEach((field) => {
         if (hasOwnField(fileChargeObject, field) && fileChargeObject[field] !== undefined && fileChargeObject[field] !== null) {
             normalizedFileCharge[field] = fileChargeObject[field];
         }

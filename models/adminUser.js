@@ -1,6 +1,10 @@
 import mongoose from 'mongoose';
 
 const walletSchema = new mongoose.Schema({
+    transactionId: {
+        type: String,
+        trim: true
+    },
     patientId: {
         type: String,
         trim: true

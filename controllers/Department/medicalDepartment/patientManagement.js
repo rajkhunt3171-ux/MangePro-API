@@ -2,6 +2,7 @@ import userModel from "../../../models/adminUser.js";
 import Appointment from "../../../models/Department/medicalDepartment/appointment.js";
 import DrDepartmentModel from "../../../models/Department/coreDepartment/doctorManagement.js";
 import PatientManagementModel from "../../../models/Department/medicalDepartment/patientManagement.js";
+import TransactionModel from "../../../models/transaction/transaction.js";
 import generateUniqueId from "../../../utils/generateId.js";
 import mongoose from "mongoose";
 import {
@@ -828,8 +829,14 @@ const setPaymentStatus = async (req, res) => {
         const commissionAmount = (paymentCharge * doctorCommission) / 100;
         const remainingAmount = paymentCharge - commissionAmount;
         const walletTime = new Date();
+        const transactionId = await generateUniqueId(
+            TransactionModel,
+            "transactionId",
+            "TRN"
+        );
 
         const adminWalletEntry = {
+            transactionId,
             patientId: selectedPatientId,
             drId: selectedCdId,
             charge: paymentCharge,
@@ -837,10 +844,25 @@ const setPaymentStatus = async (req, res) => {
             time: walletTime
         };
         const doctorWalletEntry = {
+            transactionId,
             patientId: selectedPatientId,
             drId: selectedCdId,
             charge: paymentCharge,
             balance: commissionAmount,
+            time: walletTime
+        };
+        const transactionData = {
+            transactionId,
+            patientId: selectedPatientId,
+            visitId: hasValue(visitId) ? String(visitId).trim() : latestVisit.visitId,
+            drId: selectedCdId,
+            adminUserId: adminUser.id,
+            charge: paymentCharge,
+            paymentType: String(fileCharge.type).trim(),
+            paymentStatus: String(fileCharge.status).trim(),
+            doctorCommission,
+            commissionAmount,
+            balance: remainingAmount,
             time: walletTime
         };
 
@@ -848,6 +870,7 @@ const setPaymentStatus = async (req, res) => {
             ...currentCharge,
             fileCharge: {
                 ...currentFileCharge,
+                transactionId,
                 charge: paymentCharge,
                 type: String(fileCharge.type).trim(),
                 status: String(fileCharge.status).trim()
@@ -865,7 +888,8 @@ const setPaymentStatus = async (req, res) => {
                 { id: selectedCdId },
                 { $push: { walletList: doctorWalletEntry } },
                 { new: true, runValidators: true }
-            )
+            ),
+            TransactionModel.create(transactionData)
         ]);
 
         res.status(200).json({
