@@ -26,6 +26,8 @@ router.post('/add-patient-visit-details', authMiddleware, patientManagementContr
 router.get('/approve-appointment-request/:appointmentId', authMiddleware, patientManagementController.approveAppointmentRequest);
 //payment status and flow set
 router.post('/set-payment-status', authMiddleware, patientManagementController.setPaymentStatus);
+//transaction list
+router.get('/get-transaction-list', authMiddleware, patientManagementController.getTransactionList);
 
 
 export default router;

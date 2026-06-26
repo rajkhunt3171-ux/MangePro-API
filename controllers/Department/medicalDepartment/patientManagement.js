@@ -31,6 +31,20 @@ const toPlainObject = (value) => {
     return value;
 };
 
+const normalizePositiveInteger = (value, defaultValue, maxValue) => {
+    if (!hasValue(value)) {
+        return defaultValue;
+    }
+
+    const numberValue = Number(value);
+
+    if (!Number.isInteger(numberValue) || numberValue < 1) {
+        return null;
+    }
+
+    return Math.min(numberValue, maxValue);
+};
+
 // helper function 
 const checkAdminPermission = async (req, res) => {
     const userInfo = await userModel.findOne({ id: req.user?.user_id }).select('id isAdmin -_id');
@@ -906,6 +920,130 @@ const setPaymentStatus = async (req, res) => {
     }
 };
 
+// get transaction list
+const getTransactionList = async (req, res) => {
+    try {
+        const {
+            transactionId,
+            patientId,
+            visitId,
+            drId,
+            adminUserId,
+            paymentType,
+            paymentStatus,
+            fromDate,
+            toDate
+        } = req.query;
+        const page = normalizePositiveInteger(req.query.page, 1, Number.MAX_SAFE_INTEGER);
+        const limit = normalizePositiveInteger(req.query.limit, 20, 100);
+
+        if (page === null || limit === null) {
+            return res.status(400).json({
+                code: 1,
+                success: false,
+                message: "Please provide valid page and limit"
+            });
+        }
+
+        const filter = {};
+        const exactFilters = {
+            transactionId,
+            patientId,
+            visitId,
+            drId,
+            adminUserId,
+            paymentType,
+            paymentStatus
+        };
+
+        Object.entries(exactFilters).forEach(([field, value]) => {
+            if (hasValue(value)) {
+                filter[field] = String(value).trim();
+            }
+        });
+
+        if (hasValue(fromDate) || hasValue(toDate)) {
+            filter.time = {};
+
+            if (hasValue(fromDate)) {
+                const startDate = new Date(String(fromDate).trim());
+
+                if (Number.isNaN(startDate.getTime())) {
+                    return res.status(400).json({
+                        code: 1,
+                        success: false,
+                        message: "Please provide valid fromDate"
+                    });
+                }
+
+                filter.time.$gte = startDate;
+            }
+
+            if (hasValue(toDate)) {
+                const endDate = new Date(String(toDate).trim());
+
+                if (Number.isNaN(endDate.getTime())) {
+                    return res.status(400).json({
+                        code: 1,
+                        success: false,
+                        message: "Please provide valid toDate"
+                    });
+                }
+
+                endDate.setHours(23, 59, 59, 999);
+                filter.time.$lte = endDate;
+            }
+        }
+
+        const userId = hasValue(req.user?.user_id) ? String(req.user.user_id).trim() : "";
+
+        if (!hasValue(userId)) {
+            return res.status(401).json({
+                code: 1,
+                success: false,
+                message: "User id not found"
+            });
+        }
+
+        const userInfo = await userModel.findOne({ id: userId }).select("id isAdmin -_id").lean();
+
+        if (!userInfo?.isAdmin) {
+            filter.$or = [
+                { drId: userId },
+                { adminUserId: userId }
+            ];
+        }
+
+        const skip = (page - 1) * limit;
+        const [transactionList, total] = await Promise.all([
+            TransactionModel.find(filter)
+                .sort({ time: -1, createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            TransactionModel.countDocuments(filter)
+        ]);
+
+        res.status(200).json({
+            code: 0,
+            success: true,
+            transactionList,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            code: 1,
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 export default {
     createPatient,
     getPatientList,
@@ -919,5 +1057,6 @@ export default {
     getPatientDetailsForAppointment,
     addPatientVisitDetails,
     approveAppointmentRequest,
-    setPaymentStatus
+    setPaymentStatus,
+    getTransactionList
 };

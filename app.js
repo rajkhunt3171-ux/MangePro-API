@@ -82,6 +82,7 @@ app.use("/api/room", roomsRoutes);
 app.use("/api/bed", bedsRoutes);
 
 
+
 setupSocket(io);
 
 
