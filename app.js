@@ -19,6 +19,7 @@ import roomsRoutes from "./routes/roomRoutes.js";
 import bedsRoutes from "./routes/bedRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
+import paymentRoute from "./routes/payment.js"
 
 
 const app = express();
@@ -86,6 +87,8 @@ app.use("/api/bed", bedsRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
 app.use("/api/order", orderRoutes);
+
+app.use("/api/payment", paymentRoute);
 
 setupSocket(io);
 
