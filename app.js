@@ -17,6 +17,7 @@ import mdRoutes from "./routes/medicalDepartment.js";
 import wardsRoutes from "./routes/wardRoutes.js";
 import roomsRoutes from "./routes/roomRoutes.js";
 import bedsRoutes from "./routes/bedRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
 
 
 const app = express();
@@ -80,6 +81,8 @@ app.use("/api/wards", wardsRoutes);
 app.use("/api/room", roomsRoutes);
 
 app.use("/api/bed", bedsRoutes);
+
+app.use("/api/dashboard", dashboardRoutes);
 
 
 
