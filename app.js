@@ -18,6 +18,7 @@ import wardsRoutes from "./routes/wardRoutes.js";
 import roomsRoutes from "./routes/roomRoutes.js";
 import bedsRoutes from "./routes/bedRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
 
 
 const app = express();
@@ -84,10 +85,9 @@ app.use("/api/bed", bedsRoutes);
 
 app.use("/api/dashboard", dashboardRoutes);
 
-
+app.use("/api/order", orderRoutes);
 
 setupSocket(io);
-
 
 // START SERVER
 const startServer = async () => {
